@@ -1,0 +1,245 @@
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.Extensions.DependencyInjection
+@using QuanLyNghiPhep.Data
+@inject AppSession Session
+@inject IServiceScopeFactory ScopeFactory
+@inject IJSRuntime JS
+
+
+<div class="um @(menuOpen ? "open" : "")">
+    <button type="button" class="um-trigger" @onclick="() => menuOpen = !menuOpen"
+            aria-haspopup="menu" aria-expanded="@(menuOpen ? "true" : "false")" title="Tài khoản">
+        <span class="um-avatar">@Initial</span>
+        <span class="um-id">
+            <strong>@Session.UserName</strong>
+            <small>@Session.RoleDisplay</small>
+        </span>
+        <Icon Name="chevron-down" />
+    </button>
+
+    @if (menuOpen)
+    {
+        <div class="um-backdrop" @onclick="() => menuOpen = false"></div>
+        <div class="um-dropdown" role="menu">
+            <div class="um-head">
+                <span class="um-avatar">@Initial</span>
+                <div>
+                    <strong>@Session.UserName</strong>
+                    <small>@Session.RoleDisplay</small>
+                </div>
+            </div>
+            <button type="button" class="um-item" role="menuitem" @onclick="ShowAccount">
+                <Icon Name="user" />Thông tin tài khoản
+            </button>
+            <button type="button" class="um-item" role="menuitem" @onclick="OpenPasswordModal">
+                <Icon Name="key" />Đổi mật khẩu
+            </button>
+            <button type="button" class="um-item" role="menuitem" @onclick="ShowSecurity">
+                <Icon Name="shield" />Bảo mật
+            </button>
+            <div class="um-sep"></div>
+            <button type="button" class="um-item danger" role="menuitem" @onclick="Logout">
+                <Icon Name="logout" />Đăng xuất
+            </button>
+        </div>
+    }
+</div>
+
+@* ==================== CỬA SỔ POPUP ĐỔI MẬT KHẨU GIỮA MÀN HÌNH ==================== *@
+@if (showPasswordModal)
+{
+    <div class="overlay" @onclick="ClosePasswordModal" style="position: fixed; inset: 0; z-index: 9999; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; padding: 20px;">
+        <div class="account-window" style="width: min(480px, 94vw); background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);" role="dialog" aria-modal="true" @onclick:stopPropagation="true">
+            
+            <!-- Tiêu đề áp dụng chuẩn #maunen -->
+            <div class="account-window-header" style="background: linear-gradient(135deg, #1b4d3e, #0d3326); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between;">
+                <h2 style="color: #ffffff; font-size: 19px; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 8px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">
+                    <Icon Name="key" /> ĐỔI MẬT KHẨU
+                </h2>
+                <button type="button" @onclick="ClosePasswordModal" style="background: none; border: none; color: rgba(255,255,255,0.85); font-size: 26px; cursor: pointer; line-height: 1; padding: 0 4px;" title="Đóng">×</button>
+            </div>
+
+            <!-- Thân Form nhập mật khẩu -->
+            <div class="account-window-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                <div style="font-size: 13.5px; color: #475569; padding-bottom: 8px; border-bottom: 1px solid #f1f5f9;">
+                    Tài khoản: <strong style="color: #1b4d3e; font-size: 14px;">@Session.UserName</strong>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    <div class="alert error" style="margin: 0; padding: 10px 14px; font-size: 13.5px; border-radius: 8px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; display: flex; align-items: flex-start; gap: 8px;">
+                        <span>⚠️</span>
+                        <div>@((MarkupString)errorMessage)</div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(successMessage))
+                {
+                    <div class="alert success" style="margin: 0; padding: 10px 14px; font-size: 13.5px; border-radius: 8px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; display: flex; align-items: center; gap: 8px;">
+                        <span>✅</span>
+                        <div>@successMessage</div>
+                    </div>
+                }
+
+                <!-- Mật khẩu hiện tại -->
+                <div class="field" style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 600; color: #334155;">Mật khẩu hiện tại <span style="color: #dc2626;">*</span></label>
+                    <input type="password" 
+                           @bind="currentPassword" 
+                           placeholder="Nhập mật khẩu đang dùng" 
+                           style="width: 100%; height: 40px; padding: 0 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; outline: none;" 
+                           disabled="@isSubmitting" />
+                </div>
+
+                <!-- Mật khẩu mới -->
+                <div class="field" style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 600; color: #334155;">
+                        Mật khẩu mới <span style="color: #dc2626;">*</span>
+                        <span style="font-size: 11.5px; font-weight: normal; color: #64748b;">(ít nhất 8 ký tự, có chữ hoa, thường, số, ký tự đặc biệt)</span>
+                    </label>
+                    <input type="password" 
+                           @bind="newPassword" 
+                           placeholder="Nhập mật khẩu mới" 
+                           style="width: 100%; height: 40px; padding: 0 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; outline: none;" 
+                           disabled="@isSubmitting" />
+                </div>
+
+                <!-- Xác nhận mật khẩu mới -->
+                <div class="field" style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; font-weight: 600; color: #334155;">Nhập lại mật khẩu mới <span style="color: #dc2626;">*</span></label>
+                    <input type="password" 
+                           @bind="confirmPassword" 
+                           placeholder="Nhập lại mật khẩu mới để xác nhận" 
+                           style="width: 100%; height: 40px; padding: 0 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; outline: none;" 
+                           disabled="@isSubmitting" />
+                </div>
+            </div>
+
+            <!-- Chân cửa sổ -->
+            <div class="account-window-footer" style="padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn outline" @onclick="ClosePasswordModal" disabled="@isSubmitting" style="height: 38px; padding: 0 18px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                    Hủy
+                </button>
+                <button type="button" class="btn primary" @onclick="HandleChangePassword" disabled="@isSubmitting" style="height: 38px; padding: 0 20px; border-radius: 8px; font-size: 14px; font-weight: 700; background: linear-gradient(135deg, #1b4d3e, #0d3326); border: none; color: #fff; cursor: pointer; box-shadow: 0 4px 12px rgba(27,77,62,0.3);">
+                    @(isSubmitting ? "Đang xử lý..." : "Xác nhận đổi")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string Initial => string.IsNullOrEmpty(Session.UserName) ? "?" : Session.UserName[..1].ToUpperInvariant();
+    private bool menuOpen;
+    private void ShowAccount() { menuOpen = false; Session.RequestAccount(); }
+    private void ShowSecurity() { menuOpen = false; Session.RequestSecurity(); }
+    private bool showPasswordModal = false;
+    private string currentPassword = "";
+    private string newPassword = "";
+    private string confirmPassword = "";
+    private string errorMessage = "";
+    private string successMessage = "";
+    private bool isSubmitting = false;
+
+    private void OpenPasswordModal()
+    {
+        menuOpen = false;
+        currentPassword = "";
+        newPassword = "";
+        confirmPassword = "";
+        errorMessage = "";
+        successMessage = "";
+        isSubmitting = false;
+        showPasswordModal = true;
+    }
+
+    private void ClosePasswordModal()
+    {
+        if (isSubmitting) return;
+        showPasswordModal = false;
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private async Task HandleChangePassword()
+    {
+        errorMessage = "";
+        successMessage = "";
+
+        // 1. Kiểm tra đầu vào cơ bản
+        if (string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword) || string.IsNullOrWhiteSpace(confirmPassword))
+        {
+            errorMessage = "Vui lòng nhập đầy đủ tất cả các ô mật khẩu.";
+            return;
+        }
+
+        if (newPassword != confirmPassword)
+        {
+            errorMessage = "Mật khẩu xác nhận không khớp với mật khẩu mới.";
+            return;
+        }
+
+        if (newPassword.Length < 8)
+        {
+            errorMessage = "Mật khẩu mới phải có độ dài tối thiểu 8 ký tự.";
+            return;
+        }
+
+        if (newPassword == currentPassword)
+        {
+            errorMessage = "Mật khẩu mới phải khác mật khẩu hiện tại đang dùng.";
+            return;
+        }
+
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByNameAsync(Session.UserName);
+
+            if (user is null)
+            {
+                errorMessage = "Không tìm thấy thông tin tài khoản người dùng.";
+                isSubmitting = false;
+                return;
+            }
+
+            // 2. Thực hiện đổi mật khẩu trong hệ thống ASP.NET Identity
+            var result = await userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+            if (!result.Succeeded)
+            {
+                var errorList = result.Errors.Select(e => e.Code switch
+                {
+                    "PasswordMismatch" => "Mật khẩu hiện tại không chính xác.",
+                    "PasswordTooShort" => "Mật khẩu mới phải có ít nhất 8 ký tự.",
+                    "PasswordRequiresUpper" => "Mật khẩu mới phải chứa ít nhất 1 chữ in hoa (A-Z).",
+                    "PasswordRequiresLower" => "Mật khẩu mới phải chứa ít nhất 1 chữ thường (a-z).",
+                    "PasswordRequiresDigit" => "Mật khẩu mới phải chứa ít nhất 1 chữ số (0-9).",
+                    "PasswordRequiresNonAlphanumeric" => "Mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt (@, #, $, !...).",
+                    "PasswordRequiresUniqueChars" => "Mật khẩu mới phải có ít nhất 4 ký tự khác nhau.",
+                    _ => e.Description
+                });
+                errorMessage = string.Join("<br/>", errorList);
+                isSubmitting = false;
+                return;
+            }
+
+            // 3. Thông báo thành công và tự động đăng xuất để người dùng đăng nhập lại
+            successMessage = "Đổi mật khẩu thành công! Đang chuyển về màn hình đăng nhập...";
+            StateHasChanged();
+
+            await Task.Delay(1800);
+            await Logout();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Lỗi hệ thống: " + ex.Message;
+            isSubmitting = false;
+        }
+    }
+
+    private async Task Logout() => await JS.InvokeVoidAsync("leaveApp.submitLogout");
+}

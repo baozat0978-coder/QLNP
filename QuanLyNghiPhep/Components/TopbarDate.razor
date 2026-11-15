@@ -1,0 +1,11 @@
+<span class="top-date"><Icon Name="calendar" />@Text</span>
+@code {
+    private static string Text
+    {
+        get
+        {
+            var s = DateTime.Today.ToString("dddd, dd/MM/yyyy", System.Globalization.CultureInfo.GetCultureInfo("vi-VN"));
+            return char.ToUpper(s[0]) + s[1..];
+        }
+    }
+}

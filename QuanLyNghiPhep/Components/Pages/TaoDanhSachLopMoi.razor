@@ -1,0 +1,358 @@
+@inject AppSession Session
+@inject LeaveRepository Repository
+@inject AdminService Accounts
+@inject IJSRuntime JS
+
+<style>
+    /* Biến nút [ Chọn tệp ] thành nút màu xanh lá Excel chữ trắng cực kỳ nổi bật */
+    .custom-file-input::file-selector-button {
+        background: #107c41 !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        font-size: 13px !important;
+        border: none !important;
+        border-radius: 6px !important;
+        height: 32px !important;
+        padding: 0 16px !important;
+        cursor: pointer !important;
+        margin-right: 12px !important;
+        box-shadow: 0 2px 6px rgba(16, 124, 65, 0.3) !important;
+        transition: all 0.2s ease !important;
+    }
+
+        .custom-file-input::file-selector-button:hover {
+            background: #0d6535 !important;
+            box-shadow: 0 3px 8px rgba(16, 124, 65, 0.45) !important;
+        }
+</style>
+
+<div class="add-class-page">
+    <div class="content" style="padding: 0;">
+        <!-- 1. THANH TIÊU ĐỀ #MAUNEN VỚI NÚT TẢI FILE MẪU NỔI BẬT -->
+        <div class="panel-head" style="background: linear-gradient(135deg, #1b4d3e, #0d3326) !important; padding: 16px 24px !important; border-radius: 12px 12px 0 0 !important; display: flex; align-items: center; justify-content: space-between; border-bottom: none !important;">
+            <h2 style="color: #ffffff !important; font-size: 19px !important; font-weight: 800 !important; margin: 0; letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.3) !important; display: flex; align-items: center; gap: 8px;">
+                <Icon Name="upload" /> @(IsExcel ? "Nhập lớp từ Excel" : "Tạo lớp mới")
+            </h2>
+            <div class="row-actions" style="display: flex; gap: 12px; align-items: center;">
+                @if (IsExcel)
+                {
+                    <!-- NÚT TẢI FILE MẪU EXCEL: Màu xanh lá đậm chữ trắng, đổ bóng 3D cực kỳ nổi bật -->
+                    <button type="button" class="btn" style="background: linear-gradient(135deg, #107c41, #0b552b) !important; color: #ffffff !important; font-weight: 800 !important; font-size: 14px !important; height: 38px !important; padding: 0 18px !important; border-radius: 8px !important; border: 1.5px solid rgba(255,255,255,0.4) !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;" @onclick="DownloadSampleClassExcel">
+                        <Icon Name="download" /> Tải file mẫu Excel
+                    </button>
+                }
+                <button type="button" class="btn" style="background: rgba(255, 255, 255, 0.15) !important; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.4) !important; font-weight: 600 !important; height: 38px !important; padding: 0 16px !important; border-radius: 8px !important; cursor: pointer;" @onclick="OnBack">
+                    Đóng
+                </button>
+            </div>
+        </div>
+
+        <section class="panel form-panel" style="margin-bottom: 20px;">
+            <div class="panel-head" style="background: #f8fafc !important; border-bottom: 1.5px solid #e2e8f0 !important; padding: 14px 24px !important;">
+                <div>
+                    <h2 style="color: #1b4d3e !important; font-size: 16px !important; font-weight: 800 !important; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                        📌 Thông tin lớp
+                    </h2>
+                </div>
+            </div>
+            <div class="form-body" style="padding: 20px 24px;">
+                <!-- 2. BA Ô THÔNG TIN CHIA ĐỀU 3 CỘT (CÂN ĐỐI 100%, ĐỒNG BỘ CHIỀU CAO 42PX) -->
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: end;">
+
+                    <!-- Ô 1: Tên lớp mới -->
+                    <div class="field" style="display: flex; flex-direction: column; gap: 6px;">
+                        <label style="font-size: 13px; font-weight: 700; color: #1e3a29;">Tên lớp mới <span style="color: #dc2626;">*</span></label>
+                        <input @bind="newClassName" @bind:event="oninput" placeholder="Ví dụ: B10D57"
+                               style="width: 100%; height: 42px; padding: 0 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; outline: none; background: #ffffff;" />
+                    </div>
+
+                    <!-- Ô 2: Tài khoản Chủ nhiệm trung đội -->
+                    <div class="field" style="display: flex; flex-direction: column; gap: 6px;">
+                        <label style="font-size: 13px; font-weight: 700; color: #1e3a29;">Tài khoản Chủ nhiệm trung đội <span style="color: #dc2626;">*</span></label>
+                        <select @bind="selectedManagerAccount"
+                                style="width: 100%; height: 42px; padding: 0 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; outline: none; background: #ffffff;">
+                            @if (trungDoiAccounts.Count == 0)
+                            {
+                                <option>trungdoi (Mặc định)</option>
+                            }
+                            else
+                            {
+                                @foreach (var acc in trungDoiAccounts)
+                                {
+                                    <option value="@acc">Tài khoản: @acc (Chủ nhiệm)</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Ô 3: Nhập file Excel  -->
+                    @if (IsExcel)
+                    {
+                        <div class="field" style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 13px; font-weight: 700; color: #1e3a29;">Nhập file Excel danh sách (.xlsx, .csv)</label>
+                            <div style="width: 100%; height: 42px; display: flex; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 0 8px; box-sizing: border-box;">
+                                <InputFile OnChange="HandleExcelUpload" accept=".xlsx,.csv,.txt" class="custom-file-input" style="font-size: 13px; width: 100%; cursor: pointer; border: none !important; background: transparent !important; padding: 0 !important; outline: none;" />
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+        <section class="panel">
+            <div class="panel-head">
+                <div>
+                    <h2>Danh sách học viên lớp @(string.IsNullOrWhiteSpace(newClassName) ? "(Chưa nhập tên lớp)" : newClassName)</h2>
+                </div>
+                <div class="heading-actions">
+                    @if (!IsExcel) { <button class="btn outline" @onclick="AddEmptyDraftStudentRow"> Thêm dòng học viên</button> }
+                    <button class="btn primary" @onclick="AskConfirmSaveNewClass"> Lưu lớp</button>
+                </div>
+            </div>
+
+            @if (submitAttempted && validationErrors.Count > 0)
+            {
+                <div id="class-validation-box" class="alert error" role="alert" style="margin: 0 24px 14px;">
+                    <div>Có @validationErrors.Count lỗi cú pháp, vui lòng sửa trước khi lưu:</div>
+                    <ul style="margin: 8px 0 0 20px; font-weight: 500;">
+                        @foreach (var msg in validationErrors)
+                        {
+                            <li>@msg</li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <div class="table-scroll">
+                <table class="leave-table editable-table">
+                    <thead>
+                        <tr>
+                            <th style="width:80px">STT</th>
+                            <th>TÊN HỌC VIÊN</th>
+                            <th style="width:180px">LỚP</th>
+                            <th style="width:200px">NGÀY SINH</th>
+                            <th style="width:220px">SỐ ĐIỆN THOẠI</th>
+                            <th style="width:110px">XÓA DÒNG</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < draftStudents.Count; i++)
+                        {
+                            int index = i;
+                            var row = draftStudents[index];
+                            row.STT = index + 1;
+                            if (string.IsNullOrWhiteSpace(row.Lop) && !string.IsNullOrWhiteSpace(newClassName))
+                            {
+                                row.Lop = newClassName;
+                            }
+                            <tr>
+                                <td><b>@row.STT</b></td>
+                                <td>
+                                    <input class="table-input" @bind="row.HoTen" placeholder="Nhập họ và tên học viên..." />
+                                </td>
+                                <td>
+                                    <input class="table-input" value="@(string.IsNullOrWhiteSpace(newClassName) ? row.Lop : newClassName)"
+                                           @onchange="e => { row.Lop = e.Value?.ToString() ?? string.Empty; if (string.IsNullOrWhiteSpace(newClassName)) newClassName = row.Lop; }"
+                                           placeholder="VD: B10D57" />
+                                </td>
+                                <td>
+                                    <input class="table-input @(IsBirthDateInvalid(row) ? "invalid" : "")" @bind="row.NgaySinh" @bind:event="oninput" placeholder="dd/MM/yyyy (VD: 01/01/2006)" />
+                                </td>
+                                <td>
+                                    <input class="table-input @(IsPhoneInvalid(row) ? "invalid" : "")" @bind="row.SoDienThoai" @bind:event="oninput" placeholder="Số điện thoại (VD: 0912345678)" />
+                                </td>
+                                <td>
+                                    <button type="button" class="btn small danger" @onclick="() => RemoveDraftStudentRow(index)">Xóa</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-footer" style="padding: 20px 24px;">
+                <span>Tổng số dòng đã nhập họ tên: <b>@draftStudents.Count(x => !string.IsNullOrWhiteSpace(x.HoTen))</b> học viên · Tài khoản quản lý: <b>@selectedManagerAccount</b></span>
+            </div>
+        </section>
+    </div>
+</div>
+
+@if (showConfirmNewClassModal)
+{
+    <div class="overlay" @onclick="() => showConfirmNewClassModal = false">
+        <div class="modal confirm-modal" style="max-width: 620px;" role="dialog" aria-modal="true" @onclick:stopPropagation="true">
+            <div class="warning-icon" style="background:#e3f5ec;color:#087447;"></div>
+            <h2>Xác nhận tạo danh sách lớp @newClassName?</h2>
+            <p>
+                Bạn đang chuẩn bị lưu danh sách lớp <b>@newClassName</b> gồm <b>@draftStudents.Count(x => !string.IsNullOrWhiteSpace(x.HoTen)) học viên</b>.<br />Lớp này sẽ được phân công cho tài khoản Chủ nhiệm trung đội: <b>@selectedManagerAccount</b>.<br />Sau khi xác nhận, tài khoản <b>@selectedManagerAccount</b> khi đăng nhập sẽ thấy lớp <b>@newClassName</b> để tạo danh sách nghỉ phép.
+            </p>
+            <div class="modal-actions center">
+                <button class="btn outline" @onclick="() => showConfirmNewClassModal = false"> Chỉnh sửa lại</button>
+                <button class="btn primary" @onclick="ConfirmCreateNewClass"> Đúng, lưu thông tin lớp</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Mode { get; set; } = "manual";
+    private bool IsExcel => Mode == "excel";
+    [Parameter] public EventCallback OnBack { get; set; }
+    [Parameter] public EventCallback OnClassCreated { get; set; }
+    [Parameter] public EventCallback<string> OnNotice { get; set; }
+    [Parameter] public EventCallback<string> OnError { get; set; }
+
+    private string newClassName = "";
+    private string selectedManagerAccount = "trungdoi";
+    private List<string> trungDoiAccounts = new();
+    private List<Student> draftStudents = new();
+    private bool showConfirmNewClassModal = false;
+    private bool submitAttempted = false;
+    private List<string> validationErrors => submitAttempted ? CollectValidationErrors() : new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        draftStudents = new List<Student>
+        {
+           
+            
+        };
+
+        try
+        {
+            trungDoiAccounts = await Accounts.ListTrungDoiUsers(Session);
+            if (trungDoiAccounts.Count > 0)
+            {
+                selectedManagerAccount = trungDoiAccounts[0];
+            }
+        }
+        catch
+        {
+            trungDoiAccounts = new List<string> { "trungdoi" };
+        }
+    }
+
+    private void AddEmptyDraftStudentRow()
+    {
+        draftStudents.Add(new Student
+        {
+            STT = draftStudents.Count + 1,
+            HoTen = "",
+            Lop = newClassName,
+            NgaySinh = "",
+            SoDienThoai = ""
+        });
+    }
+
+    private void RemoveDraftStudentRow(int index)
+    {
+        if (index >= 0 && index < draftStudents.Count)
+            draftStudents.RemoveAt(index);
+        if (draftStudents.Count == 0)
+            AddEmptyDraftStudentRow();
+    }
+
+    private async Task HandleExcelUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file is null) return;
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+
+            var imported = ExcelExporter.ParseClassExcel(ms, newClassName);
+            if (imported.Count == 0)
+            {
+                await OnError.InvokeAsync("Không đọc được dòng học viên nào từ tệp đã chọn. Hãy kiểm tra các cột: STT; Tên; Lớp; Ngày sinh; Số điện thoại.");
+                return;
+            }
+
+            draftStudents = imported;
+            if (string.IsNullOrWhiteSpace(newClassName) && !string.IsNullOrWhiteSpace(imported[0].Lop))
+                newClassName = imported[0].Lop;
+
+            await OnError.InvokeAsync("");
+            await OnNotice.InvokeAsync($"Đã đọc thành công {imported.Count} học viên từ tệp \"{file.Name}\" lên giao diện. Bạn có thể kiểm tra và chỉnh sửa từng ô nếu cần trước khi lưu.");
+        }
+        catch (Exception ex)
+        {
+            await OnError.InvokeAsync(ValidationRules.ErrorMessage(ex));
+        }
+    }
+
+    private async Task DownloadSampleClassExcel()
+    {
+        await JS.InvokeVoidAsync("open", "/filemau.xlsx", "_blank");
+    }
+
+    private static bool Fails(Action check)
+    {
+        try { check(); return false; }
+        catch (ArgumentException) { return true; }
+    }
+
+    private bool IsBirthDateInvalid(Student row) =>
+        submitAttempted && !string.IsNullOrWhiteSpace(row.HoTen) && Fails(() => ValidationRules.BirthDate(row.NgaySinh));
+
+    private bool IsPhoneInvalid(Student row) =>
+        submitAttempted && !string.IsNullOrWhiteSpace(row.HoTen) && Fails(() => ValidationRules.Phone(row.SoDienThoai));
+
+    private List<string> CollectValidationErrors()
+    {
+        var errors = new List<string>();
+        for (int i = 0; i < draftStudents.Count; i++)
+        {
+            var row = draftStudents[i];
+            if (string.IsNullOrWhiteSpace(row.HoTen)) continue;
+            string who = $"Dòng {i + 1} ({row.HoTen.Trim()})";
+            try { ValidationRules.BirthDate(row.NgaySinh); }
+            catch (ArgumentException ex) { errors.Add($"{who}: {ex.Message}"); }
+            try { ValidationRules.Phone(row.SoDienThoai); }
+            catch (ArgumentException ex) { errors.Add($"{who}: {ex.Message}"); }
+        }
+        return errors;
+    }
+
+    private async Task AskConfirmSaveNewClass()
+    {
+        await OnError.InvokeAsync("");
+        if (string.IsNullOrWhiteSpace(newClassName))
+        {
+            await OnError.InvokeAsync("Vui lòng nhập tên lớp mới (ví dụ: B9D55).");
+            return;
+        }
+        if (!draftStudents.Any(x => !string.IsNullOrWhiteSpace(x.HoTen)))
+        {
+            await OnError.InvokeAsync("Vui lòng nhập ít nhất 1 học viên trong danh sách lớp.");
+            return;
+        }
+
+        submitAttempted = true;
+        int errorCount = CollectValidationErrors().Count;
+        if (errorCount > 0)
+        {
+            await OnError.InvokeAsync($"Danh sách lớp còn {errorCount} lỗi ngày sinh hoặc số điện thoại. Xem chi tiết ở khung đỏ phía trên bảng học viên.");
+            await JS.InvokeVoidAsync("leaveApp.scrollToId", "class-validation-box");
+            return;
+        }
+        showConfirmNewClassModal = true;
+    }
+
+    private async Task ConfirmCreateNewClass()
+    {
+        try
+        {
+            var created = Repository.CreateClassWithStudents(Session, newClassName, draftStudents, selectedManagerAccount);
+            showConfirmNewClassModal = false;
+            await OnNotice.InvokeAsync($"Đã tạo thành công danh sách lớp {created.TenLop} (giao tài khoản {created.NguoiTao} quản lý) và đồng bộ toàn hệ thống.");
+            await OnClassCreated.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            showConfirmNewClassModal = false;
+            await OnError.InvokeAsync(ValidationRules.ErrorMessage(ex));
+        }
+    }
+}

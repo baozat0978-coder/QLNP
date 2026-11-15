@@ -1,0 +1,596 @@
+@page "/admin"
+@inject AppSession Session
+@inject AdminService Accounts
+@inject IJSRuntime JS
+@inject ILogger<Admin> Logger
+<PageTitle>Quản trị tài khoản</PageTitle>
+<main class="content">
+    <h1>@(View == "create" ? "Tạo tài khoản mới" : "Quản lý tài khoản")</h1>    @if(!ready) {<p>Đang tải...</p>}
+    else if(Session.Role!=UserRole.Admin || !Session.IsAuthenticated) {<p>Bạn cần đăng nhập bằng tài khoản quản trị viên.</p>}
+    else
+    {
+        @if(message!="") {<p class="alert success" role="status" style="white-space: pre-line">@message</p>}
+        @if(error!="") {<p class="alert error">@error</p>}
+        
+        @if (credentials.Count > 1)
+        {
+        <section class="panel form-body">
+            <h2>Thông tin tài khoản vừa cấp</h2>
+
+            @foreach (var item in credentials.Skip(1))
+            {
+               <p>Tên đăng nhập: <strong>@item[0]</strong></p>
+               <p>Mật khẩu: <code>@item[2]</code></p>
+            }
+
+            <p>Lưu mật khẩu trước khi tải lại trang.</p>
+
+            <button type="button"
+                    class="btn primary"
+                    @onclick="DownloadCredentials">Tải thông tin tài khoản
+            </button>
+        </section>
+        }
+        @if (View == "create")
+{
+    <section class="panel form-body">
+        <h2>Cấp tài khoản</h2>
+
+        <div class="form-grid">
+            <div class="field">
+                <label>Vai trò</label>
+                <select @bind="role">
+                    @foreach (var r in Enum.GetValues<UserRole>())
+                    {
+                        <option value="@r.ToString()">
+                            @RoleLabels.Display(r)
+                        </option>
+                    }
+                </select>
+            </div>
+
+            @if (role == "BoMon")
+            {
+                <div class="field">
+                    <label>Tên khoa</label>
+                    <input @bind="facultyName"
+                           maxlength="150"
+                           placeholder="Nhập tên khoa" />
+                </div>
+
+                <div class="field">
+                    <label>ID khoa</label>
+                    <input @bind="facultyId"
+                           maxlength="40"
+                           placeholder="Nhập ID khoa" />
+                </div>
+            }
+            else if (role != "PhongQLHV")
+            {
+                <div class="field">
+                    <label>Họ và tên</label>
+                    <input @bind="fullName" maxlength="150" />
+                </div>
+
+                <div class="field">
+                    <label>Ngày sinh</label>
+                    <input type="date"
+                           @bind="dateOfBirth"
+                           @bind:format="yyyy-MM-dd" />
+                </div>
+
+                <div class="field">
+                    <label>Giới tính</label>
+                    <select @bind="gender">
+                        <option value="">-- Chọn giới tính --</option>
+                        <option value="Nam">Nam</option>
+                        <option value="Nữ">Nữ</option>
+                        <option value="Khác">Khác</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>Số điện thoại</label>
+                    <input type="tel"
+                           @bind="phoneNumber"
+                           maxlength="10"
+                           inputmode="numeric"
+                           placeholder="10 chữ số, bắt đầu bằng 0" />
+                </div>
+
+                <div class="field">
+                    <label>Số hiệu CAND</label>
+                    <input type="text"
+                           @bind="majorCode"
+                           maxlength="6"
+                           inputmode="numeric"
+                           placeholder="Nhập đủ 6 chữ số" />
+                </div>
+            }
+
+            @if (role == "PhongQLHV")
+            {
+                <div class="field"><label>Số điện thoại (không bắt buộc)</label><input type="tel" @bind="phoneNumber" maxlength="10" inputmode="numeric" /></div>
+            }
+            <div class="field">
+                <label>Tên đăng nhập</label>
+                <input @bind="name"
+                       maxlength="100"
+                       autocomplete="off" />
+            </div>
+
+            <div class="field">
+                <label>Mật khẩu ban đầu</label>
+                <input type="password"
+                       @bind="password"
+                       autocomplete="new-password"
+                       maxlength="256"
+                       placeholder="Bỏ trống để sinh ngẫu nhiên" />
+
+                <small>
+                    Nếu tự nhập: ít nhất 8 ký tự, gồm chữ hoa,
+                    chữ thường, số và ký tự đặc biệt.
+                </small>
+            </div>
+        </div>
+
+        <button type="button"
+                class="btn primary"
+                disabled="@busy"
+                @onclick="Create">Tạo tài khoản
+        </button>
+    </section>
+}
+        @if (View == "accounts")
+{
+    <section class="panel acc-panel">
+        <div class="acc-head">
+            <div class="acc-head-title">
+                <h2>Danh sách tài khoản</h2>
+                <span class="acc-count">@FilteredRows.Count() tài khoản</span>
+            </div>
+            <button type="button"
+                    class="btn acc-reload"
+                    disabled="@busy"
+                    @onclick="Reload">↻ Tải lại
+            </button>
+        </div>
+
+        <div class="acc-filters">
+    <div class="field">
+        <label>Tìm kiếm</label>
+        <input placeholder="Tên đăng nhập, họ tên, SĐT, số hiệu CAND..."
+               @bind="search"
+               @bind:event="oninput" />
+    </div>
+
+    <div class="field">
+        <label>Vai trò</label>
+        <select @bind="roleFilter">
+            <option value="">Tất cả vai trò</option>
+
+            @foreach (var r in Enum.GetValues<UserRole>())
+            {
+                <option value="@r.ToString()">
+                    @RoleLabels.Display(r)
+                </option>
+            }
+        </select>
+    </div>
+
+    <div class="field">
+        <label>Trạng thái</label>
+        <select @bind="statusFilter">
+            <option value="">Tất cả trạng thái</option>
+            <option value="active">Hoạt động</option>
+            <option value="disabled">Đã khóa</option>
+            <option value="temporary">Khóa tạm do sai mật khẩu</option>
+        </select>
+    </div>
+</div>
+
+        <div class="table-scroll acc-scroll">
+            <table class="leave-table acc-table">
+                <thead>
+                    <tr>
+                        <th>Tên đăng nhập</th>
+                        <th>Họ và tên</th>
+                        <th>Ngày sinh</th>
+                        <th>Giới tính</th>
+                        <th>Số điện thoại</th>
+                        <th>Số hiệu CAND</th>
+                        <th>Vai trò</th>
+                        <th>Mật khẩu</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var r in FilteredRows)
+                    {
+                        <tr>
+                            <td>
+                                <div class="acc-user">
+                                    <span class="acc-avatar">@(string.IsNullOrEmpty(r.Name) ? "?" : r.Name.Substring(0, 1).ToUpper())</span>
+                                    <strong>@r.Name</strong>
+                                </div>
+                            </td>
+                            <td>@r.FullName</td>
+                            <td>@(r.DateOfBirth?.ToString("dd/MM/yyyy") ?? "")</td>
+                            <td>@r.Gender</td>
+                            <td>@r.PhoneNumber</td>
+                            <td>@r.MajorCode</td>
+                            <td><span class="acc-role acc-role-@r.Role.ToString().ToLower()">@DisplayRole(r.Role)</span></td>
+                            <td>
+                                @if (r.Password.Length > 0)
+                                {
+                                    <div style="display: flex; align-items: center; gap: 8px; min-width: 145px;">
+                                        <code style="white-space: pre-wrap; overflow-wrap: anywhere">@(visiblePasswords.Contains(r.Id) ? r.Password : "••••••••")</code>
+                                        <button type="button" class="btn small outline" style="flex-shrink: 0;" title="@(visiblePasswords.Contains(r.Id) ? "Ẩn mật khẩu" : "Hiện mật khẩu")" aria-label="@(visiblePasswords.Contains(r.Id) ? "Ẩn mật khẩu" : "Hiện mật khẩu")" aria-pressed="@(visiblePasswords.Contains(r.Id) ? "true" : "false")" @onclick="() => TogglePassword(r.Id)"><Icon Name="eye" /></button>
+                                    </div>
+                                }
+                                else { <small title="Cập nhật mật khẩu trong Đổi thông tin tài khoản để có thể xem.">Chưa có bản hiển thị</small> }
+                            </td>
+                            <td>
+                                <span class="acc-pill @(!r.Enabled ? "acc-pill-bad" : r.Locked ? "acc-pill-wait" : "acc-pill-ok")">
+                                @(!r.Enabled
+                                    ? "Đã khóa"
+                                    : r.Locked
+                                        ? "Khóa tạm do sai mật khẩu"
+                                        : "Hoạt động")
+                                </span>
+                            </td>
+                            <td>
+                                <div class="acc-actions">
+                                    @{ var self = busy || r.Id == Session.UserId; }
+                                    @if (r.Enabled)
+                                    {
+                                        <button type="button" class="acc-ic acc-ic-lock" disabled="@self"
+                                                title="Khóa tài khoản" aria-label="Khóa tài khoản"
+                                                @onclick='() => Prepare(r, "disable")'><Icon Name="lock" /></button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="acc-ic acc-ic-unlock" disabled="@self"
+                                                title="Mở khóa tài khoản" aria-label="Mở khóa tài khoản"
+                                                @onclick='() => Prepare(r, "enable")'><Icon Name="unlock" /></button>
+                                    }
+
+                                    @if (r.Enabled && r.Locked)
+                                    {
+                                        <button type="button" class="acc-ic acc-ic-release" disabled="@self"
+                                                title="Bỏ khóa tạm (do sai mật khẩu)" aria-label="Bỏ khóa tạm"
+                                                @onclick='() => Prepare(r, "enable")'><Icon Name="key" /></button>
+                                    }
+
+                                    <button type="button" class="acc-ic acc-ic-edit" disabled="@self"
+                                            title="Đổi thông tin tài khoản" aria-label="Đổi thông tin tài khoản"
+                                            @onclick='() => Prepare(r, "profile")'><Icon Name="edit" /></button>
+
+                                    <button type="button" class="acc-ic acc-ic-delete" disabled="@self"
+                                            title="Xóa tài khoản" aria-label="Xóa tài khoản"
+                                            @onclick='() => Prepare(r, "delete")'><Icon Name="trash" /></button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+
+                    @if (!FilteredRows.Any())
+                    {
+                        <tr>
+                            <td colspan="10">
+                                Không có tài khoản phù hợp.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+        @if(target is not null)
+        {
+            <div class="overlay"><div class="modal form-body" role="dialog" aria-modal="true">
+                <h2>@ActionLabel — @target.Name</h2>
+                    @if (!string.IsNullOrWhiteSpace(error))
+                    {
+                        <div class="alert error" role="alert">
+                            @error
+                        </div>
+                    }
+                @if (action == "profile")
+                {
+        <div class="form-grid">
+            <div class="field">
+                <label>Vai trò</label>
+                <select @bind="editrole">
+                    @foreach (var r in Enum.GetValues<UserRole>())
+                    {
+                        <option value="@r.ToString()">
+                            @RoleLabels.Display(r)
+                        </option>
+                    }
+                </select>
+            </div>
+
+            @if (editrole == "BoMon")
+            {
+                <div class="field">
+                    <label>Tên khoa</label>
+                    <input @bind="editfacultyName"
+                           maxlength="150"
+                           placeholder="Nhập tên khoa" />
+                </div>
+
+                <div class="field">
+                    <label>ID khoa</label>
+                    <input @bind="editfacultyId"
+                           maxlength="40"
+                           placeholder="Nhập ID khoa" />
+                </div>
+            }
+            else if (editrole != "PhongQLHV")
+            {
+                <div class="field">
+                    <label>Họ và tên</label>
+                    <input @bind="editfullName" maxlength="150" />
+                </div>
+
+                <div class="field">
+                    <label>Ngày sinh</label>
+                    <input type="date"
+                           @bind="editdateOfBirth"
+                           @bind:format="yyyy-MM-dd" />
+                </div>
+
+                <div class="field">
+                    <label>Giới tính</label>
+                    <select @bind="editgender">
+                        <option value="">-- Chọn giới tính --</option>
+                        <option value="Nam">Nam</option>
+                        <option value="Nữ">Nữ</option>
+                        <option value="Khác">Khác</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>Số điện thoại</label>
+                    <input type="tel"
+                           @bind="editphoneNumber"
+                           maxlength="10"
+                           inputmode="numeric"
+                           placeholder="10 chữ số, bắt đầu bằng 0" />
+                </div>
+
+                <div class="field">
+                    <label>Số hiệu CAND</label>
+                    <input type="text"
+                           @bind="editmajorCode"
+                           maxlength="6"
+                           inputmode="numeric"
+                           placeholder="Nhập đủ 6 chữ số" />
+                </div>
+            }
+
+            @if (editrole == "PhongQLHV")
+            {
+                <div class="field"><label>Số điện thoại (không bắt buộc)</label><input type="tel" @bind="editphoneNumber" maxlength="10" inputmode="numeric" /></div>
+            }
+            <div class="field">
+                <label>Tên đăng nhập</label>
+                <input @bind="editname"
+                       maxlength="100"
+                       autocomplete="off" />
+            </div>
+
+            <div class="field">
+                <label>Mật khẩu mới</label>
+                <input type="password"
+                       @bind="editpassword"
+                       autocomplete="new-password"
+                       maxlength="256"
+                       placeholder="Bỏ trống để giữ nguyên mật khẩu" />
+
+                <small>
+                    Nếu tự nhập: ít nhất 8 ký tự, gồm chữ hoa,
+                    chữ thường, số và ký tự đặc biệt.
+                </small>
+            </div>
+        </div>
+
+                }
+                @if(action=="password") {<div class="field"><label>Mật khẩu mới (ít nhất 8 ký tự, đủ hoa/thường/số/ký tự đặc biệt)</label><input @bind="value" type="password" maxlength="256" autocomplete="new-password" /></div>}
+                <p>Thay đổi sẽ thu hồi phiên đăng nhập cũ. Tài khoản đã phát sinh lịch sử chỉ được khóa, không xóa.</p>
+                <button class="btn primary" disabled="@busy" @onclick="Confirm">Xác nhận</button><button class="btn outline" disabled="@busy" @onclick="()=>target=null">Hủy</button>
+            </div></div>
+        }
+    }
+</main>
+@code {
+    private string editname="", editrole="", editfullName="", editphoneNumber="", editmajorCode="", editgender="", editfacultyName="", editfacultyId="", editpassword="";
+    private DateTime? editdateOfBirth;
+    private readonly HashSet<string> visiblePasswords = new();
+    private void TogglePassword(string id) { if (!visiblePasswords.Add(id)) visiblePasswords.Remove(id); }
+    private bool ready,busy;
+    private string fullName = "";
+    private DateTime? dateOfBirth;
+    private string phoneNumber = "";
+    private string majorCode = "";
+    private string gender = "";
+    private string name="",role="BoMon",password="",message="",error="",search="",action="",value="";
+    private string facultyName = "";
+    private string facultyId = "";
+    private List<AccountRow> rows=new(); private AccountRow? target;
+    private List<string[]> credentials = new(); private string ActionLabel => action switch { "profile" => "Đổi thông tin tài khoản", "password" => "Đặt lại mật khẩu", "delete" => "Xóa tài khoản", "disable" => "Khóa tài khoản", _ => "Mở khóa tài khoản" };
+    protected override async Task OnInitializedAsync() {try {await Session.InitializeAsync();if(Session.IsAuthenticated&&Session.Role==UserRole.Admin) rows=await Accounts.List(Session);} catch(Exception ex) {Fail(ex);} ready=true;}
+    private void Fail(Exception ex) {if(ex is ArgumentException or InvalidOperationException or UserAccessException or InvalidDataException) error=ex.Message;else {Logger.LogError(ex,"Quản trị thất bại");error="Không thể xử lý. Vui lòng thử lại.";}}
+    private async Task Run(Func<Task> task) {if(busy)return;busy=true;error="";message="";try {await task();}catch(Exception ex){Fail(ex);}finally{busy=false;}}
+    private async Task Reload()=>await Run(async()=>{ visiblePasswords.Clear(); rows=await Accounts.List(Session); });
+    private string roleFilter = "";
+private string statusFilter = "";
+
+private IEnumerable<AccountRow> FilteredRows
+{
+    get
+    {
+        var keyword = search.Trim();
+
+        return rows.Where(account =>
+            (
+                keyword.Length == 0
+                || account.Name.Contains(
+                    keyword, StringComparison.OrdinalIgnoreCase)
+                || account.FullName.Contains(
+                    keyword, StringComparison.OrdinalIgnoreCase)
+                || account.PhoneNumber.Contains(
+                    keyword, StringComparison.OrdinalIgnoreCase)
+                || account.MajorCode.Contains(
+                    keyword, StringComparison.OrdinalIgnoreCase)
+                || DisplayRole(account.Role).Contains(
+                    keyword, StringComparison.OrdinalIgnoreCase)
+            )
+            && (
+                roleFilter.Length == 0
+                || account.Role.Split(',').Contains(roleFilter)
+            )
+            && (
+                statusFilter switch
+                {
+                    "active" => account.Enabled && !account.Locked,
+                    "disabled" => !account.Enabled,
+                    "temporary" => account.Enabled && account.Locked,
+                    _ => true
+                }
+            ));
+    }
+}
+
+private string DisplayRole(string roles)
+{
+    return string.Join(", ", roles.Split(',').Select(roleName =>
+        Enum.TryParse<UserRole>(roleName, out var parsed)
+            ? RoleLabels.Display(parsed)
+            : roleName));
+}
+    private async Task Create() => await Run(async () =>
+    {
+        var generatedPassword = await Accounts.Create(
+            Session,
+            name,
+            role,
+            password,
+            fullName,
+            dateOfBirth,
+            phoneNumber,
+            majorCode,
+            gender,
+            facultyName,
+            facultyId);
+
+        credentials = new()
+        {
+        new[] { "Username", "Role", "Password" },
+        new[] { name.Trim(), role, generatedPassword }
+        };
+
+        name = "";
+        password = "";
+        fullName = "";
+        dateOfBirth = null;
+        phoneNumber = "";
+        majorCode = "";
+        gender = "";
+        facultyName = "";
+        facultyId = "";
+
+        rows = await Accounts.List(Session);
+        message = "Đã tạo tài khoản.";
+    }); 
+    private void Prepare(AccountRow row, string a)
+    {
+        error = "";
+        message = "";
+
+        target = row;
+        action = a;
+        value = "";
+        editname = row.Name; editrole = row.Role; editfullName = row.FullName;
+        editdateOfBirth = row.DateOfBirth; editgender = row.Gender;
+        editphoneNumber = row.PhoneNumber; editmajorCode = row.MajorCode;
+        editfacultyName = row.FacultyName; editfacultyId = row.FacultyId; editpassword = "";
+    }
+    private async Task Confirm() => await Run(async () =>
+{
+    if (target is null)
+        return;
+
+    var account = target;
+    var selectedAction = action;
+    var enteredValue = value;
+
+    if (selectedAction == "profile")
+        await Accounts.UpdateProfile(Session, account.Id, editname, editrole, editfullName, editdateOfBirth,
+            editphoneNumber, editmajorCode, editgender, editfacultyName, editfacultyId, editpassword);
+    else await Accounts.Mutate(
+        Session,
+        account.Id,
+        selectedAction,
+        enteredValue);
+
+    if (selectedAction == "password")
+    {
+        credentials = new()
+        {
+            new[] { "Username", "Role", "Password" },
+            new[] { account.Name, account.Role, enteredValue }
+        };
+    }
+    else if (selectedAction is "profile" or "delete")
+    {
+        credentials.Clear();
+    }
+
+    target = null;
+    value = "";
+
+    message = selectedAction switch
+    {
+        "password" => "Đã đổi mật khẩu. Lưu thông tin mật khẩu vừa cấp.",
+        "profile" => ProfileUpdateMessage(account),
+        "delete" => "Đã xóa tài khoản.",
+        "disable" => "Đã khóa tài khoản.",
+        _ => "Đã mở khóa tài khoản."
+    };
+
+    visiblePasswords.Clear();
+    editpassword = "";
+    rows = await Accounts.List(Session);
+});
+    private string ProfileUpdateMessage(AccountRow before)
+    {
+        var changes = new List<string>();
+        void Changed(string label, string oldValue, string newValue)
+        {
+            if (oldValue != newValue)
+                changes.Add($"Đã cập nhật {label.ToLower()}: {(newValue.Length == 0 ? "(trống)" : newValue)}");
+        }
+        var faculty = editrole == "BoMon";
+        var noPersonal = faculty || editrole == "PhongQLHV";
+        Changed("Tên đăng nhập", before.Name, editname.Trim());
+        Changed("Vai trò", DisplayRole(before.Role), DisplayRole(editrole));
+        Changed("Họ và tên", before.FullName, noPersonal ? "" : editfullName.Trim());
+        Changed("Ngày sinh", before.DateOfBirth?.ToString("dd/MM/yyyy") ?? "", noPersonal ? "" : editdateOfBirth?.ToString("dd/MM/yyyy") ?? "");
+        Changed("Giới tính", before.Gender, noPersonal ? "" : editgender.Trim());
+        Changed("Số điện thoại", before.PhoneNumber, faculty ? "" : editphoneNumber.Trim());
+        Changed("Số hiệu CAND", before.MajorCode, noPersonal ? "" : editmajorCode.Trim());
+        Changed("Tên khoa", before.FacultyName, faculty ? editfacultyName.Trim() : "");
+        Changed("ID khoa", before.FacultyId, faculty ? editfacultyId.Trim().ToUpperInvariant() : "");
+        if (editpassword.Length > 0) changes.Add($"Đã cập nhật mật khẩu: {editpassword}");
+        return $"Đã cập nhật tài khoản {editname.Trim()}.\n" + (changes.Count > 0 ? string.Join("\n", changes) : "Không có thông tin thay đổi.");
+    }
+    [Parameter]
+    public string View { get; set; } = "accounts";
+    private async Task Download(string filename,List<string[]> data)=>await JS.InvokeVoidAsync("leaveApp.downloadBase64",filename,Convert.ToBase64String(ExcelExporter.BuildTable("Tai khoan",data)),"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    private async Task DownloadCredentials()=>await Run(async()=>{Session.EnsureValid();await Download("TaiKhoanVuaCap.xlsx",credentials);});
+}

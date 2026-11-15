@@ -1,0 +1,29 @@
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@inject IWebHostEnvironment Env
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap"
+          rel="stylesheet" />
+    <link rel="stylesheet" href="css/site.css?v=@CssVersion" />
+    <script>try { if (localStorage.getItem('qlnp.navCollapsed') === '1') document.documentElement.classList.add('nav-collapsed'); } catch (e) { }</script>
+    <HeadOutlet @rendermode="RenderMode.InteractiveServer" />
+</head>
+<body>
+    <Routes @rendermode="RenderMode.InteractiveServer" />
+    <script src="_framework/blazor.web.js"></script>
+    <script src="js/app.js?v=@Version("js", "app.js")"></script>
+</body>
+</html>
+@code {
+    private string CssVersion => Version("css", "site.css");
+
+    private string Version(string folder, string file)
+    {
+        try { return File.GetLastWriteTimeUtc(Path.Combine(Env.WebRootPath, folder, file)).Ticks.ToString(); }
+        catch { return "1"; }
+    }
+}

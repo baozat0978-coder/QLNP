@@ -1,0 +1,11 @@
+<div class="kpi @Accent">
+    <span class="kpi-label">@Label</span>
+    <strong class="kpi-value">@Value</strong>
+    @if (!string.IsNullOrEmpty(Sub)) { <small class="kpi-sub">@Sub</small> }
+</div>
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string Sub { get; set; } = "";
+    [Parameter] public string Accent { get; set; } = "k-green";
+}

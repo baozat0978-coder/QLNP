@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+**/AppData/*
+!**/AppData/du-lieu-nghi-phep.json
+.vs/
+*.user
+*.suo
