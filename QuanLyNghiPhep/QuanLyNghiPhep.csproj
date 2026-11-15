@@ -6,6 +6,10 @@
     <RootNamespace>QuanLyNghiPhep</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Gom các tệp partial dưới LeaveRepository.cs trong Solution Explorer. -->
+    <Compile Update="Services\Business\LeaveRepository.*.cs" DependentUpon="LeaveRepository.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.22" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.22" />
   </ItemGroup>
