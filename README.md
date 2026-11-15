@@ -1,6 +1,6 @@
 # Hệ thống quản lý học viên nghỉ phép
 
-Ứng dụng web nội bộ của Học viện An ninh nhân dân dùng để lập, duyệt, lưu trữ và tra cứu đơn nghỉ phép của học viên. Hệ thống xây dựng trên ASP.NET Core Blazor Server (.NET 8), ASP.NET Core Identity và SQLite. Toàn bộ dữ liệu nằm trong thư mục `QuanLyNghiPhep/AppData` của máy chủ.
+Ứng dụng web nội bộ của Học viện An ninh nhân dân dùng để lập, duyệt, lưu trữ và tra cứu đơn nghỉ phép của học viên. Hệ thống xây dựng trên ASP.NET Core Blazor Server (.NET 8), ASP.NET Core Identity và SQLite. Toàn bộ dữ liệu nằm trong thư mục `src/QuanLyNghiPhep/AppData` của máy chủ.
 
 ## Mục lục
 
@@ -161,7 +161,7 @@ Chạy các lệnh dưới đây từ thư mục chứa `QuanLyNghiPhep.sln`.
 ```powershell
 dotnet restore QuanLyNghiPhep.sln
 dotnet build QuanLyNghiPhep.sln -c Release
-dotnet run --project QuanLyNghiPhep --launch-profile https
+dotnet run --project src/QuanLyNghiPhep --launch-profile https
 ```
 
 Trong Visual Studio, mở `QuanLyNghiPhep.sln` ở thư mục gốc, chọn `QuanLyNghiPhep` làm Startup Project, rồi chạy profile `https`.
@@ -170,7 +170,7 @@ Trong Visual Studio, mở `QuanLyNghiPhep.sln` ở thư mục gốc, chọn `Qua
 
 ### 7.1. Tài khoản ban đầu
 
-Ở lần chạy đầu tiên trên một database trống, ứng dụng tạo bốn tài khoản `admin`, `trungdoi`, `phongqlhv` và `bomon`. Mỗi tài khoản có mật khẩu ngẫu nhiên riêng dài 10 ký tự. Danh sách được ghi vào `QuanLyNghiPhep/AppData/tai-khoan-ban-dau.txt`. Sau khi bàn giao, người vận hành cần đổi mật khẩu và xoá tệp này.
+Ở lần chạy đầu tiên trên một database trống, ứng dụng tạo bốn tài khoản `admin`, `trungdoi`, `phongqlhv` và `bomon`. Mỗi tài khoản có mật khẩu ngẫu nhiên riêng dài 10 ký tự. Danh sách được ghi vào `src/QuanLyNghiPhep/AppData/tai-khoan-ban-dau.txt`. Sau khi bàn giao, người vận hành cần đổi mật khẩu và xoá tệp này.
 
 Khi nâng cấp một database cũ chưa có tài khoản Admin, ứng dụng tạo thêm một tài khoản Admin và ghi vào `AppData/admin-ban-dau.txt`. Ứng dụng không bao giờ đặt lại mật khẩu của tài khoản đã tồn tại khi khởi động lại.
 
@@ -181,10 +181,10 @@ Nếu `accounts.db` trống nhưng `tai-khoan-ban-dau.txt` vẫn còn, ứng d�
 Khi không đăng nhập được vào giao diện, người vận hành quản lý tài khoản trực tiếp trên máy chủ bằng các lệnh sau.
 
 ```powershell
-dotnet run --project QuanLyNghiPhep -- --account create <tên> <TrungDoi|PhongQLHV|BoMon>
-dotnet run --project QuanLyNghiPhep -- --account reset-password <tên>
-dotnet run --project QuanLyNghiPhep -- --account disable <tên>
-dotnet run --project QuanLyNghiPhep -- --account enable <tên>
+dotnet run --project src/QuanLyNghiPhep -- --account create <tên> <TrungDoi|PhongQLHV|BoMon>
+dotnet run --project src/QuanLyNghiPhep -- --account reset-password <tên>
+dotnet run --project src/QuanLyNghiPhep -- --account disable <tên>
+dotnet run --project src/QuanLyNghiPhep -- --account enable <tên>
 ```
 
 Lệnh `create` và `reset-password` in mật khẩu mới ra màn hình. Mật khẩu này cần được bàn giao riêng cho người dùng.
@@ -205,7 +205,7 @@ Lệnh `create` và `reset-password` in mật khẩu mới ra màn hình. Mật 
 
 ## 8. Cấu hình
 
-Các tham số nghiệp vụ nằm trong mục `Leave` của `QuanLyNghiPhep/appsettings.json`.
+Các tham số nghiệp vụ nằm trong mục `Leave` của `src/QuanLyNghiPhep/appsettings.json`.
 
 | Khoá | Mặc định | Ý nghĩa |
 |---|---|---|
@@ -213,7 +213,7 @@ Các tham số nghiệp vụ nằm trong mục `Leave` của `QuanLyNghiPhep/app
 | `Leave:PlatoonPrefix` | Trung đội | Tiền tố khi hiển thị tên trung đội. |
 | `Leave:TranhThuMonthlyLimit` | 3 | Số đơn nghỉ tranh thủ mỗi học viên mỗi tháng trước khi giao diện hiện cảnh báo. |
 
-Cổng chạy được khai báo trong `QuanLyNghiPhep/Properties/launchSettings.json`. Profile `http` dùng cổng 5187, profile `https` dùng cổng 7187 và 5187.
+Cổng chạy được khai báo trong `src/QuanLyNghiPhep/Properties/launchSettings.json`. Profile `http` dùng cổng 5187, profile `https` dùng cổng 7187 và 5187.
 
 ## 9. Nhập danh sách lớp
 
@@ -260,10 +260,12 @@ Admin tải bản sao lưu lên giao diện. Bản này được đặt vào th�
 ### 10.4. Nâng cấp phiên bản
 
 1. Dừng ứng dụng.
-2. Sao lưu toàn bộ thư mục `QuanLyNghiPhep/AppData`, gồm hai database, tệp JSON và thư mục `keys`.
+2. Sao lưu toàn bộ thư mục `src/QuanLyNghiPhep/AppData`, gồm hai database, tệp JSON và thư mục `keys`.
 3. Thay mã nguồn bằng phiên bản mới.
-4. Chép lại `AppData` vào đúng vị trí cũ.
+4. Chép lại `AppData` vào `src/QuanLyNghiPhep/AppData`.
 5. Chạy phiên bản mới và kiểm tra danh sách lớp cùng phân công.
+
+Các phiên bản trước khi có thư mục `src/` lưu dữ liệu tại `QuanLyNghiPhep/AppData`. Khi nâng cấp từ các phiên bản đó, chuyển cả thư mục `AppData` sang vị trí mới ở bước 4. Nếu bỏ qua bước này, ứng dụng không thấy dữ liệu cũ và khởi tạo database trống.
 
 Không xoá `AppData` để xử lý lỗi đăng nhập, vì thao tác này xoá toàn bộ dữ liệu. Hãy dùng lệnh `--account reset-password` ở mục 7.2. Không đổi tên ứng dụng DataProtection trong `Program.cs`. Nếu đổi, các khoá cũ trong `AppData/keys` không còn giải mã được dữ liệu.
 
@@ -285,12 +287,12 @@ Dự án có hai bộ kiểm thử. Cả hai dùng thư mục và database tạm
 
 ```powershell
 dotnet build QuanLyNghiPhep.sln -c Release
-dotnet run --project Tests/QuanLyNghiPhep.Tests.csproj -c Release
-node Tests/http_smoke.mjs
+dotnet run --project tests/QuanLyNghiPhep.Tests/QuanLyNghiPhep.Tests.csproj -c Release
+node tests/QuanLyNghiPhep.Tests/http_smoke.mjs
 ```
 
-- `Tests/Program.cs` là chương trình console kiểm tra hồi quy nghiệp vụ. Bộ này không dùng `dotnet test`. Kiểm tra thất bại được ghi `FAIL` rồi bộ test chạy tiếp; cuối lượt chạy in danh sách kiểm tra thất bại và trả mã thoát 1. Ngoại lệ không mong đợi vẫn dừng toàn bộ lượt chạy. Phạm vi gồm phân quyền, bảo toàn lịch sử, quản lý tài khoản, nâng cấp schema và JSON, nhập Excel và CSV, nhiều repository đồng thời, rollback khi ghi lỗi, đăng nhập và đổi mật khẩu.
-- `Tests/http_smoke.mjs` kiểm tra các luồng HTTP trên một bản cài tạm, gồm đăng nhập, phân quyền trang, đổi mật khẩu, gia hạn phiên và đăng xuất. Bộ này cần bản build Release và Node.js 20 trở lên.
+- `tests/QuanLyNghiPhep.Tests/Program.cs` là chương trình console kiểm tra hồi quy nghiệp vụ. Bộ này không dùng `dotnet test`. Kiểm tra thất bại được ghi `FAIL` rồi bộ test chạy tiếp; cuối lượt chạy in danh sách kiểm tra thất bại và trả mã thoát 1. Ngoại lệ không mong đợi vẫn dừng toàn bộ lượt chạy. Phạm vi gồm phân quyền, bảo toàn lịch sử, quản lý tài khoản, nâng cấp schema và JSON, nhập Excel và CSV, nhiều repository đồng thời, rollback khi ghi lỗi, đăng nhập và đổi mật khẩu.
+- `tests/QuanLyNghiPhep.Tests/http_smoke.mjs` kiểm tra các luồng HTTP trên một bản cài tạm, gồm đăng nhập, phân quyền trang, đổi mật khẩu, gia hạn phiên và đăng xuất. Bộ này cần bản build Release và Node.js 20 trở lên.
 
 **Tình trạng tại lần chạy ngày 15/11/2026.** Bộ kiểm thử HTTP qua cả 25 kiểm tra. Bộ kiểm thử nghiệp vụ qua 162 kiểm tra và có 2 kiểm tra thất bại, cả hai thuộc bộ nhập danh sách lớp (`ClassListImporter`):
 
@@ -309,39 +311,41 @@ README.md
 start.ps1                     Script khởi chạy nhanh
 docs/
   PhanTichBaiToan.md          Phân tích nghiệp vụ và ràng buộc dữ liệu
-QuanLyNghiPhep/
-  Program.cs                  Đăng ký dịch vụ, Identity, cookie và pipeline
-  appsettings.json            Tham số Leave
-  Endpoints/
-    AccountEndpoints.cs       /account/login, /renew, /logout, /change-password
-  Components/
-    App.razor, Routes.razor   Khung HTML gốc và định tuyến
-    Layout/                   MainLayout, AccountMenu, SidebarBrand, TopbarDate
-    Pages/                    Chỉ các component có @page: Home, Admin, InDon, Password, Error
-    Workspaces/               Màn hình và tab theo vai trò
-      TrungDoi/               Chủ nhiệm trung đội: tổng quan, các loại nghỉ, môn học, học viên
-      PhongQLHV/              Phòng QLHV: đơn nghỉ, lớp, tạo lớp, thống kê, danh mục
-      BoMon/                  Giáo viên bộ môn
-      QuanTri/                Quản trị: nhật ký, sao lưu
-    Shared/                   Icon, bảng đơn nghỉ dùng chung
-      Charts/                 Biểu đồ và thẻ KPI
-  Models/                     Thực thể, input và hằng số; mỗi kiểu một tệp
-  Data/                       ApplicationUser, DbContext, BusinessStore, dữ liệu mẫu
-  Services/
-    ValidationRules.cs        Quy tắc kiểm tra dùng chung
-    Accounts/                 Phiên đăng nhập, kiểm tra tài khoản, quản trị, mật khẩu
-    Business/                 LeaveRepository chia theo nghiệp vụ (partial class):
-                              lõi, Access, Classes, Students, Subjects, Leaves,
-                              Review, Catalog, Audit
-    Backup/                   Sao lưu thủ công, tự động và khôi phục
-    Excel/                    ClassListImporter (nhập), ExcelExporter (xuất)
-  AppData/                    Database, khoá và tệp sinh khi chạy (không đưa lên Git)
-  Properties/                 launchSettings.json
-  wwwroot/                    CSS, JavaScript, hình ảnh, tệp Excel mẫu
-Tests/
-  QuanLyNghiPhep.Tests.csproj
-  Program.cs                  Kiểm thử hồi quy nghiệp vụ
-  http_smoke.mjs              Kiểm thử HTTP
+src/
+  QuanLyNghiPhep/               Ứng dụng web
+    Program.cs                  Đăng ký dịch vụ, Identity, cookie và pipeline
+    appsettings.json            Tham số Leave
+    Endpoints/
+      AccountEndpoints.cs       /account/login, /renew, /logout, /change-password
+    Components/
+      App.razor, Routes.razor   Khung HTML gốc và định tuyến
+      Layout/                   MainLayout, AccountMenu, SidebarBrand, TopbarDate
+      Pages/                    Chỉ các component có @page: Home, Admin, InDon, Password, Error
+      Workspaces/               Màn hình và tab theo vai trò
+        TrungDoi/               Chủ nhiệm trung đội: tổng quan, các loại nghỉ, môn học, học viên
+        PhongQLHV/              Phòng QLHV: đơn nghỉ, lớp, tạo lớp, thống kê, danh mục
+        BoMon/                  Giáo viên bộ môn
+        QuanTri/                Quản trị: nhật ký, sao lưu
+      Shared/                   Icon, bảng đơn nghỉ dùng chung
+        Charts/                 Biểu đồ và thẻ KPI
+    Models/                     Thực thể, input và hằng số; mỗi kiểu một tệp
+    Data/                       ApplicationUser, DbContext, BusinessStore, dữ liệu mẫu
+    Services/
+      ValidationRules.cs        Quy tắc kiểm tra dùng chung
+      Accounts/                 Phiên đăng nhập, kiểm tra tài khoản, quản trị, mật khẩu
+      Business/                 LeaveRepository chia theo nghiệp vụ (partial class):
+                                lõi, Access, Classes, Students, Subjects, Leaves,
+                                Review, Catalog, Audit
+      Backup/                   Sao lưu thủ công, tự động và khôi phục
+      Excel/                    ClassListImporter (nhập), ExcelExporter (xuất)
+    AppData/                    Database, khoá và tệp sinh khi chạy (không đưa lên Git)
+    Properties/                 launchSettings.json
+    wwwroot/                    CSS, JavaScript, hình ảnh, tệp Excel mẫu
+tests/
+  QuanLyNghiPhep.Tests/
+    QuanLyNghiPhep.Tests.csproj
+    Program.cs                  Kiểm thử hồi quy nghiệp vụ
+    http_smoke.mjs              Kiểm thử HTTP
 ```
 
 ## 14. Giới hạn hiện tại

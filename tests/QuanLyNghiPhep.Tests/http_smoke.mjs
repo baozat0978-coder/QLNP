@@ -7,8 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import net from 'node:net';
 
-const root=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const project=path.join(root,'QuanLyNghiPhep');
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..','..');
+const project=path.join(root,'src','QuanLyNghiPhep');
 const directory=await mkdtemp(path.join(tmpdir(),'leave-http-check-'));
 const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));
 const port=listener.address().port;await new Promise(r=>listener.close(r));

@@ -23,7 +23,7 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $Root        = $PSScriptRoot
-$ProjectDir  = Join-Path $Root 'QuanLyNghiPhep'
+$ProjectDir  = Join-Path $Root 'src\QuanLyNghiPhep'
 $ProjectFile = Join-Path $ProjectDir 'QuanLyNghiPhep.csproj'
 $LaunchProfile     = if ($Http) { 'http' } else { 'https' }
 $Url         = if ($Http) { 'http://localhost:5187' } else { 'https://localhost:7187' }

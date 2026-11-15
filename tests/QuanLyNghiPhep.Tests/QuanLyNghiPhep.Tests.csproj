@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><UseAppHost>false</UseAppHost></PropertyGroup>
-  <ItemGroup><ProjectReference Include="../QuanLyNghiPhep/QuanLyNghiPhep.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../src/QuanLyNghiPhep/QuanLyNghiPhep.csproj" /></ItemGroup>
 </Project>
 
