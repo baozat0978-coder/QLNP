@@ -6,19 +6,22 @@
 }
 else
 {
-    <div class="rk">
+    <ol class="rk">
         @foreach (var it in Items)
         {
             n++;
-            <div class="rk-row">
-                <span class="rk-n">@n</span>
+            <li class="rk-row">
+                <span class="rk-n">@n.ToString("00")</span>
                 <div class="rk-main">
-                    <div class="rk-top"><span class="rk-name">@it.Label@if (!string.IsNullOrEmpty(it.Sub)) { <small>@it.Sub</small> }</span><b>@it.Value</b></div>
+                    <div class="rk-top">
+                        <span class="rk-name" title="@it.Label">@it.Label@if (!string.IsNullOrEmpty(it.Sub)) { <small>@it.Sub</small> }</span>
+                        <b>@it.Value</b>
+                    </div>
                     <div class="rk-track"><div class="rk-fill" style="width:@W(it.Value, max)%;background:@Color"></div></div>
                 </div>
-            </div>
+            </li>
         }
-    </div>
+    </ol>
 }
 @code {
     [Parameter, EditorRequired] public List<RankItem> Items { get; set; } = new();

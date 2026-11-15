@@ -6,10 +6,6 @@
 @if (TrungDoiView == "select-class")
 {
     <div class="class-select-stage">
-        @if (!string.IsNullOrWhiteSpace(Notice))
-        {
-            <div class="alert success stage-alert" role="status">@Notice <button @onclick="() => OnNotice.InvokeAsync(string.Empty)">×</button></div>
-        }
         <div class="class-picker-box">
             <div class="class-picker-header">
                 <img src="/image/logo_hoc_vien.png" alt="Logo Học viện" />
@@ -101,14 +97,6 @@ else
             </header>
 
             <main class="content">
-                @if (!string.IsNullOrWhiteSpace(Notice))
-                {
-                    <div class="alert success" role="status">@Notice <button @onclick="() => OnNotice.InvokeAsync(string.Empty)">×</button></div>
-                }
-                @if (!string.IsNullOrWhiteSpace(PageError))
-                {
-                    <div class="alert error" role="alert">@PageError <button @onclick="() => OnError.InvokeAsync(string.Empty)">×</button></div>
-                }
 
                 @if (trungDoiTab == "overview")
                 {
@@ -164,8 +152,6 @@ else
     [Parameter, EditorRequired] public List<ClassGroup> ClassGroups { get; set; } = new();
     [Parameter, EditorRequired] public List<Student> AllStudents { get; set; } = new();
     [Parameter, EditorRequired] public List<LeaveRequest> AllRecords { get; set; } = new();
-    [Parameter] public string Notice { get; set; } = "";
-    [Parameter] public string PageError { get; set; } = "";
     [Parameter] public EventCallback<string> OnEnterClass { get; set; }
     [Parameter] public EventCallback OnBackToClassSelect { get; set; }
     [Parameter] public EventCallback OnDataChanged { get; set; }

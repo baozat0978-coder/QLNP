@@ -2,49 +2,17 @@
 @inject LeaveRepository Repository
 @inject AdminService Accounts
 @inject IJSRuntime JS
-
-<style>
-    /* Biến nút [ Chọn tệp ] thành nút màu xanh lá Excel chữ trắng cực kỳ nổi bật */
-    .custom-file-input::file-selector-button {
-        background: #107c41 !important;
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        font-size: 13px !important;
-        border: none !important;
-        border-radius: 6px !important;
-        height: 32px !important;
-        padding: 0 16px !important;
-        cursor: pointer !important;
-        margin-right: 12px !important;
-        box-shadow: 0 2px 6px rgba(16, 124, 65, 0.3) !important;
-        transition: all 0.2s ease !important;
-    }
-
-        .custom-file-input::file-selector-button:hover {
-            background: #0d6535 !important;
-            box-shadow: 0 3px 8px rgba(16, 124, 65, 0.45) !important;
-        }
-</style>
+@inject NotifyService Notify
 
 <div class="add-class-page">
     <div class="content" style="padding: 0;">
-        <!-- 1. THANH TIÊU ĐỀ #MAUNEN VỚI NÚT TẢI FILE MẪU NỔI BẬT -->
         <div class="panel-head" style="background: linear-gradient(135deg, #1b4d3e, #0d3326) !important; padding: 16px 24px !important; border-radius: 12px 12px 0 0 !important; display: flex; align-items: center; justify-content: space-between; border-bottom: none !important;">
-            <h2 style="color: #ffffff !important; font-size: 19px !important; font-weight: 800 !important; margin: 0; letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.3) !important; display: flex; align-items: center; gap: 8px;">
-                <Icon Name="upload" /> @(IsExcel ? "Nhập lớp từ Excel" : "Tạo lớp mới")
+            <h2 style="color: #ffffff !important; font-size: 19px !important; font-weight: 800 !important; margin: 0; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
+                <Icon Name="plus" /> Tạo lớp mới
             </h2>
-            <div class="row-actions" style="display: flex; gap: 12px; align-items: center;">
-                @if (IsExcel)
-                {
-                    <!-- NÚT TẢI FILE MẪU EXCEL: Màu xanh lá đậm chữ trắng, đổ bóng 3D cực kỳ nổi bật -->
-                    <button type="button" class="btn" style="background: linear-gradient(135deg, #107c41, #0b552b) !important; color: #ffffff !important; font-weight: 800 !important; font-size: 14px !important; height: 38px !important; padding: 0 18px !important; border-radius: 8px !important; border: 1.5px solid rgba(255,255,255,0.4) !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;" @onclick="DownloadSampleClassExcel">
-                        <Icon Name="download" /> Tải file mẫu Excel
-                    </button>
-                }
-                <button type="button" class="btn" style="background: rgba(255, 255, 255, 0.15) !important; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.4) !important; font-weight: 600 !important; height: 38px !important; padding: 0 16px !important; border-radius: 8px !important; cursor: pointer;" @onclick="OnBack">
-                    Đóng
-                </button>
-            </div>
+            <button type="button" class="btn" style="background: rgba(255, 255, 255, 0.15) !important; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.4) !important;" @onclick="OnBack">
+                Đóng
+            </button>
         </div>
 
         <section class="panel form-panel" style="margin-bottom: 20px;">
@@ -56,8 +24,8 @@
                 </div>
             </div>
             <div class="form-body" style="padding: 20px 24px;">
-                <!-- 2. BA Ô THÔNG TIN CHIA ĐỀU 3 CỘT (CÂN ĐỐI 100%, ĐỒNG BỘ CHIỀU CAO 42PX) -->
-                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: end;">
+                <!-- Hai ô thông tin lớp -->
+                <div class="form-two">
 
                     <!-- Ô 1: Tên lớp mới -->
                     <div class="field" style="display: flex; flex-direction: column; gap: 6px;">
@@ -84,17 +52,6 @@
                             }
                         </select>
                     </div>
-
-                    <!-- Ô 3: Nhập file Excel  -->
-                    @if (IsExcel)
-                    {
-                        <div class="field" style="display: flex; flex-direction: column; gap: 6px;">
-                            <label style="font-size: 13px; font-weight: 700; color: #1e3a29;">Nhập file Excel danh sách (.xlsx, .csv)</label>
-                            <div style="width: 100%; height: 42px; display: flex; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 0 8px; box-sizing: border-box;">
-                                <InputFile OnChange="HandleExcelUpload" accept=".xlsx,.csv,.txt" class="custom-file-input" style="font-size: 13px; width: 100%; cursor: pointer; border: none !important; background: transparent !important; padding: 0 !important; outline: none;" />
-                            </div>
-                        </div>
-                    }
                 </div>
             </div>
         </section>
@@ -104,9 +61,19 @@
                     <h2>Danh sách học viên lớp @(string.IsNullOrWhiteSpace(newClassName) ? "(Chưa nhập tên lớp)" : newClassName)</h2>
                 </div>
                 <div class="heading-actions">
-                    @if (!IsExcel) { <button class="btn outline" @onclick="AddEmptyDraftStudentRow"> Thêm dòng học viên</button> }
                     <button class="btn primary" @onclick="AskConfirmSaveNewClass"> Lưu lớp</button>
                 </div>
+            </div>
+            <div class="table-toolbar draft-toolbar">
+                <div class="row-actions">
+                    <label class="btn outline file-btn" title="Chọn tệp .xlsx hoặc .csv">
+                        <Icon Name="upload" />Nhập từ Excel
+                        <InputFile @key="fileInputKey" OnChange="HandleExcelUpload" accept=".xlsx,.csv,.txt" />
+                    </label>
+                    <button type="button" class="btn outline" @onclick="AddEmptyDraftStudentRow"><Icon Name="plus" />Thêm dòng</button>
+                    <button type="button" class="link-btn" @onclick="DownloadSampleClassExcel"><Icon Name="download" />Tải file mẫu</button>
+                </div>
+                <span class="toolbar-hint">Nhập từ Excel sẽ thay danh sách đang có; sau đó vẫn sửa hoặc thêm dòng trực tiếp trong bảng.</span>
             </div>
 
             @if (submitAttempted && validationErrors.Count > 0)
@@ -135,7 +102,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @for (int i = 0; i < draftStudents.Count; i++)
+                        @if (draftStudents.Count == 0)
+                        {
+                            <tr><td colspan="6" class="empty-table">Chưa có học viên. Bấm <b>Nhập từ Excel</b> để đọc danh sách từ tệp, hoặc <b>Thêm dòng</b> để nhập tay.</td></tr>
+                        }
+                        @{ var draftOffset = (Paging.Clamp(draftStudents.Count, draftPage, draftPageSize) - 1) * draftPageSize; }
+                        @for (int i = draftOffset; i < Math.Min(draftOffset + draftPageSize, draftStudents.Count); i++)
                         {
                             int index = i;
                             var row = draftStudents[index];
@@ -168,6 +140,7 @@
                     </tbody>
                 </table>
             </div>
+            <Pager Total="draftStudents.Count" @bind-Page="draftPage" @bind-PageSize="draftPageSize" Label="dòng học viên" />
 
             <div class="form-footer" style="padding: 20px 24px;">
                 <span>Tổng số dòng đã nhập họ tên: <b>@draftStudents.Count(x => !string.IsNullOrWhiteSpace(x.HoTen))</b> học viên · Tài khoản quản lý: <b>@selectedManagerAccount</b></span>
@@ -194,8 +167,7 @@
 }
 
 @code {
-    [Parameter] public string Mode { get; set; } = "manual";
-    private bool IsExcel => Mode == "excel";
+    private int fileInputKey; // đổi key để chọn lại cùng một tệp vẫn kích hoạt OnChange
     [Parameter] public EventCallback OnBack { get; set; }
     [Parameter] public EventCallback OnClassCreated { get; set; }
     [Parameter] public EventCallback<string> OnNotice { get; set; }
@@ -205,6 +177,7 @@
     private string selectedManagerAccount = "trungdoi";
     private List<string> trungDoiAccounts = new();
     private List<Student> draftStudents = new();
+    private int draftPage = 1, draftPageSize = Paging.DefaultSize;
     private bool showConfirmNewClassModal = false;
     private bool submitAttempted = false;
     private List<string> validationErrors => submitAttempted ? CollectValidationErrors() : new();
@@ -233,6 +206,7 @@
 
     private void AddEmptyDraftStudentRow()
     {
+        draftPage = int.MaxValue; // nhảy tới trang cuối để thấy dòng vừa thêm
         draftStudents.Add(new Student
         {
             STT = draftStudents.Count + 1,
@@ -243,9 +217,15 @@
         });
     }
 
-    private void RemoveDraftStudentRow(int index)
+    private async Task RemoveDraftStudentRow(int index)
     {
-        if (index >= 0 && index < draftStudents.Count)
+        if (index < 0 || index >= draftStudents.Count) return;
+        var row = draftStudents[index];
+        // Dòng trống xóa luôn; dòng đã nhập họ tên thì hỏi lại
+        if (!string.IsNullOrWhiteSpace(row.HoTen)
+            && !await Notify.ConfirmAsync("Xóa dòng học viên?", $"Dòng {index + 1} ({row.HoTen.Trim()}) sẽ bị xóa khỏi danh sách đang soạn."))
+            return;
+        if (index < draftStudents.Count && ReferenceEquals(draftStudents[index], row))
             draftStudents.RemoveAt(index);
         if (draftStudents.Count == 0)
             AddEmptyDraftStudentRow();
@@ -257,6 +237,10 @@
         {
             var file = e.File;
             if (file is null) return;
+            int filled = draftStudents.Count(x => !string.IsNullOrWhiteSpace(x.HoTen));
+            if (filled > 0 && !await Notify.ConfirmAsync("Thay danh sách đang có?",
+                    $"Bảng đang có {filled} học viên. Nhập tệp \"{file.Name}\" sẽ thay toàn bộ danh sách này.", "Thay danh sách"))
+                return;
             using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
@@ -269,9 +253,20 @@
                 return;
             }
 
+            // Mỗi lần chỉ nhập một lớp: tệp có nhiều lớp khác nhau thì dừng, tránh gộp nhầm vào cùng một lớp
+            var fileClasses = imported.Select(x => x.Lop.Trim()).Where(x => x.Length > 0)
+                                      .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (fileClasses.Count > 1)
+            {
+                await OnError.InvokeAsync($"Tệp \"{file.Name}\" chứa {fileClasses.Count} lớp khác nhau ({string.Join(", ", fileClasses.Take(5))}). Mỗi lần chỉ nhập danh sách của một lớp.");
+                return;
+            }
+
             draftStudents = imported;
-            if (string.IsNullOrWhiteSpace(newClassName) && !string.IsNullOrWhiteSpace(imported[0].Lop))
-                newClassName = imported[0].Lop;
+            draftPage = 1;
+            submitAttempted = false; // lỗi kiểm tra của danh sách cũ không còn áp dụng
+            if (string.IsNullOrWhiteSpace(newClassName) && fileClasses.Count == 1)
+                newClassName = fileClasses[0];
 
             await OnError.InvokeAsync("");
             await OnNotice.InvokeAsync($"Đã đọc thành công {imported.Count} học viên từ tệp \"{file.Name}\" lên giao diện. Bạn có thể kiểm tra và chỉnh sửa từng ô nếu cần trước khi lưu.");
@@ -279,6 +274,11 @@
         catch (Exception ex)
         {
             await OnError.InvokeAsync(ValidationRules.ErrorMessage(ex));
+        }
+        finally
+        {
+            // Đọc xong (hoặc hủy) mới tạo lại ô chọn tệp, để chọn lại đúng tệp đó vẫn nhận được
+            fileInputKey++;
         }
     }
 
@@ -333,6 +333,9 @@
         int errorCount = CollectValidationErrors().Count;
         if (errorCount > 0)
         {
+            // Chuyển tới trang chứa dòng lỗi đầu tiên
+            var firstBad = draftStudents.FindIndex(r => IsBirthDateInvalid(r) || IsPhoneInvalid(r));
+            if (firstBad >= 0) draftPage = firstBad / draftPageSize + 1;
             await OnError.InvokeAsync($"Danh sách lớp còn {errorCount} lỗi ngày sinh hoặc số điện thoại. Xem chi tiết ở khung đỏ phía trên bảng học viên.");
             await JS.InvokeVoidAsync("leaveApp.scrollToId", "class-validation-box");
             return;
@@ -344,6 +347,9 @@
     {
         try
         {
+            // Bảng hiển thị "Tên lớp mới" cho mọi dòng, nên lưu đúng giá trị đó (không dùng lớp cũ đọc từ tệp)
+            foreach (var row in draftStudents)
+                row.Lop = newClassName.Trim();
             var created = Repository.CreateClassWithStudents(Session, newClassName, draftStudents, selectedManagerAccount);
             showConfirmNewClassModal = false;
             await OnNotice.InvokeAsync($"Đã tạo thành công danh sách lớp {created.TenLop} (giao tài khoản {created.NguoiTao} quản lý) và đồng bộ toàn hệ thống.");

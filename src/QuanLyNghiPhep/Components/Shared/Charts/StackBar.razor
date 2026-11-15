@@ -5,6 +5,7 @@
 }
 else
 {
+    <div class="sb-total"><strong>@total</strong><span>@TotalLabel</span></div>
     <div class="sb">
         @foreach (var s in Items.Where(x => x.Value > 0)) { <div style="flex:@s.Value;background:@s.Color" title="@s.Label: @s.Value"></div> }
     </div>
@@ -17,4 +18,5 @@ else
 }
 @code {
     [Parameter, EditorRequired] public List<Slice> Items { get; set; } = new();
+    [Parameter] public string TotalLabel { get; set; } = "đơn nghỉ phép";
 }

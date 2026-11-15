@@ -1,5 +1,8 @@
 <div class="kpi @Accent">
-    <span class="kpi-label">@Label</span>
+    <div class="kpi-head">
+        <span class="kpi-label">@Label</span>
+        @if (!string.IsNullOrEmpty(IconName)) { <span class="kpi-ic"><Icon Name="@IconName" /></span> }
+    </div>
     <strong class="kpi-value">@Value</strong>
     @if (!string.IsNullOrEmpty(Sub)) { <small class="kpi-sub">@Sub</small> }
 </div>
@@ -8,4 +11,6 @@
     [Parameter] public string Value { get; set; } = "";
     [Parameter] public string Sub { get; set; } = "";
     [Parameter] public string Accent { get; set; } = "k-green";
+    /// <summary>Tên icon (xem Icon.razor) hiển thị góc phải thẻ.</summary>
+    [Parameter] public string IconName { get; set; } = "";
 }

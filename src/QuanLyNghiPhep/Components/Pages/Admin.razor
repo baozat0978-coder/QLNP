@@ -3,14 +3,13 @@
 @inject AdminService Accounts
 @inject IJSRuntime JS
 @inject ILogger<Admin> Logger
+@inject NotifyService Notify
 <PageTitle>Quản trị tài khoản</PageTitle>
 <main class="content">
     <h1>@(View == "create" ? "Tạo tài khoản mới" : "Quản lý tài khoản")</h1>    @if(!ready) {<p>Đang tải...</p>}
     else if(Session.Role!=UserRole.Admin || !Session.IsAuthenticated) {<p>Bạn cần đăng nhập bằng tài khoản quản trị viên.</p>}
     else
     {
-        @if(message!="") {<p class="alert success" role="status" style="white-space: pre-line">@message</p>}
-        @if(error!="") {<p class="alert error">@error</p>}
         
         @if (credentials.Count > 1)
         {
@@ -207,12 +206,11 @@
                 </thead>
 
                 <tbody>
-                    @foreach (var r in FilteredRows)
+                    @foreach (var r in Paging.Slice(FilteredRows, page, pageSize).Items)
                     {
                         <tr>
                             <td>
                                 <div class="acc-user">
-                                    <span class="acc-avatar">@(string.IsNullOrEmpty(r.Name) ? "?" : r.Name.Substring(0, 1).ToUpper())</span>
                                     <strong>@r.Name</strong>
                                 </div>
                             </td>
@@ -225,9 +223,12 @@
                             <td>
                                 @if (r.Password.Length > 0)
                                 {
-                                    <div style="display: flex; align-items: center; gap: 8px; min-width: 145px;">
-                                        <code style="white-space: pre-wrap; overflow-wrap: anywhere">@(visiblePasswords.Contains(r.Id) ? r.Password : "••••••••")</code>
-                                        <button type="button" class="btn small outline" style="flex-shrink: 0;" title="@(visiblePasswords.Contains(r.Id) ? "Ẩn mật khẩu" : "Hiện mật khẩu")" aria-label="@(visiblePasswords.Contains(r.Id) ? "Ẩn mật khẩu" : "Hiện mật khẩu")" aria-pressed="@(visiblePasswords.Contains(r.Id) ? "true" : "false")" @onclick="() => TogglePassword(r.Id)"><Icon Name="eye" /></button>
+                                    var shown = visiblePasswords.Contains(r.Id);
+                                    <div class="acc-pw">
+                                        <code>@(shown ? r.Password : "••••••••")</code>
+                                        <button type="button" class="acc-ic acc-ic-view @(shown ? "on" : "")"
+                                                title="@(shown ? "Ẩn mật khẩu" : "Hiện mật khẩu")" aria-label="@(shown ? "Ẩn mật khẩu" : "Hiện mật khẩu")"
+                                                aria-pressed="@(shown ? "true" : "false")" @onclick="() => TogglePassword(r.Id)"><Icon Name="@(shown ? "eye-off" : "eye")" /></button>
                                     </div>
                                 }
                                 else { <small title="Cập nhật mật khẩu trong Đổi thông tin tài khoản để có thể xem.">Chưa có bản hiển thị</small> }
@@ -270,7 +271,7 @@
 
                                     <button type="button" class="acc-ic acc-ic-delete" disabled="@self"
                                             title="Xóa tài khoản" aria-label="Xóa tài khoản"
-                                            @onclick='() => Prepare(r, "delete")'><Icon Name="trash" /></button>
+                                            @onclick='() => DeleteAccount(r)'><Icon Name="trash" /></button>
                                 </div>
                             </td>
                         </tr>
@@ -287,6 +288,7 @@
                 </tbody>
             </table>
         </div>
+        <Pager Total="FilteredRows.Count()" @bind-Page="page" @bind-PageSize="pageSize" Label="tài khoản" />
     </section>
 }
         @if(target is not null)
@@ -418,15 +420,38 @@
     private string phoneNumber = "";
     private string majorCode = "";
     private string gender = "";
-    private string name="",role="BoMon",password="",message="",error="",search="",action="",value="";
+    private string name="",role="BoMon",password="",error="",search="",action="",value="";
     private string facultyName = "";
     private string facultyId = "";
     private List<AccountRow> rows=new(); private AccountRow? target;
     private List<string[]> credentials = new(); private string ActionLabel => action switch { "profile" => "Đổi thông tin tài khoản", "password" => "Đặt lại mật khẩu", "delete" => "Xóa tài khoản", "disable" => "Khóa tài khoản", _ => "Mở khóa tài khoản" };
     protected override async Task OnInitializedAsync() {try {await Session.InitializeAsync();if(Session.IsAuthenticated&&Session.Role==UserRole.Admin) rows=await Accounts.List(Session);} catch(Exception ex) {Fail(ex);} ready=true;}
-    private void Fail(Exception ex) {if(ex is ArgumentException or InvalidOperationException or UserAccessException or InvalidDataException) error=ex.Message;else {Logger.LogError(ex,"Quản trị thất bại");error="Không thể xử lý. Vui lòng thử lại.";}}
-    private async Task Run(Func<Task> task) {if(busy)return;busy=true;error="";message="";try {await task();}catch(Exception ex){Fail(ex);}finally{busy=false;}}
+    private void Fail(Exception ex)
+    {
+        string text;
+        if (ex is ArgumentException or InvalidOperationException or UserAccessException or InvalidDataException) text = ex.Message;
+        else { Logger.LogError(ex, "Quản trị thất bại"); text = "Không thể xử lý. Vui lòng thử lại."; }
+        // Đang mở hộp thao tác: lỗi hiển thị ngay trong hộp để sửa tiếp; còn lại dùng toast
+        if (target is not null) error = text; else Notify.Error(text);
+    }
+    private async Task Run(Func<Task> task) {if(busy)return;busy=true;error="";Notify.ClearErrors();try {await task();}catch(Exception ex){Fail(ex);}finally{busy=false;}}
+    private async Task DeleteAccount(AccountRow row)
+    {
+        if (!await Notify.ConfirmAsync("Xóa tài khoản?",
+                $"Tài khoản \"{row.Name}\" sẽ bị xóa và mọi phiên đăng nhập của tài khoản này bị thu hồi.\nTài khoản đã phát sinh lịch sử chỉ được khóa, không xóa được."))
+            return;
+        target = null;
+        await Run(async () =>
+        {
+            await Accounts.Mutate(Session, row.Id, "delete", "");
+            credentials.Clear();
+            visiblePasswords.Clear();
+            rows = await Accounts.List(Session);
+            Notify.Success($"Đã xóa tài khoản {row.Name}.");
+        });
+    }
     private async Task Reload()=>await Run(async()=>{ visiblePasswords.Clear(); rows=await Accounts.List(Session); });
+    private int page = 1, pageSize = Paging.DefaultSize;
     private string roleFilter = "";
 private string statusFilter = "";
 
@@ -505,12 +530,11 @@ private string DisplayRole(string roles)
         facultyId = "";
 
         rows = await Accounts.List(Session);
-        message = "Đã tạo tài khoản.";
+        Notify.Success($"Đã tạo tài khoản {credentials[1][0]}. Mật khẩu hiển thị ở mục \"Thông tin tài khoản vừa cấp\".");
     }); 
     private void Prepare(AccountRow row, string a)
     {
         error = "";
-        message = "";
 
         target = row;
         action = a;
@@ -546,6 +570,15 @@ private string DisplayRole(string roles)
             new[] { account.Name, account.Role, enteredValue }
         };
     }
+    else if (selectedAction == "profile" && editpassword.Length > 0)
+    {
+        // Mật khẩu mới hiển thị ở khung "Thông tin tài khoản vừa cấp", không đưa vào toast tự ẩn
+        credentials = new()
+        {
+            new[] { "Username", "Role", "Password" },
+            new[] { editname.Trim(), editrole, editpassword }
+        };
+    }
     else if (selectedAction is "profile" or "delete")
     {
         credentials.Clear();
@@ -554,14 +587,14 @@ private string DisplayRole(string roles)
     target = null;
     value = "";
 
-    message = selectedAction switch
+    Notify.Success(selectedAction switch
     {
-        "password" => "Đã đổi mật khẩu. Lưu thông tin mật khẩu vừa cấp.",
+        "password" => $"Đã đặt lại mật khẩu tài khoản {account.Name}. Lưu thông tin mật khẩu vừa cấp.",
         "profile" => ProfileUpdateMessage(account),
-        "delete" => "Đã xóa tài khoản.",
-        "disable" => "Đã khóa tài khoản.",
-        _ => "Đã mở khóa tài khoản."
-    };
+        "delete" => $"Đã xóa tài khoản {account.Name}.",
+        "disable" => $"Đã khóa tài khoản {account.Name}.",
+        _ => $"Đã mở khóa tài khoản {account.Name}."
+    });
 
     visiblePasswords.Clear();
     editpassword = "";
@@ -586,7 +619,7 @@ private string DisplayRole(string roles)
         Changed("Số hiệu CAND", before.MajorCode, noPersonal ? "" : editmajorCode.Trim());
         Changed("Tên khoa", before.FacultyName, faculty ? editfacultyName.Trim() : "");
         Changed("ID khoa", before.FacultyId, faculty ? editfacultyId.Trim().ToUpperInvariant() : "");
-        if (editpassword.Length > 0) changes.Add($"Đã cập nhật mật khẩu: {editpassword}");
+        if (editpassword.Length > 0) changes.Add("Đã cập nhật mật khẩu (xem mục \"Thông tin tài khoản vừa cấp\")");
         return $"Đã cập nhật tài khoản {editname.Trim()}.\n" + (changes.Count > 0 ? string.Join("\n", changes) : "Không có thông tin thay đổi.");
     }
     [Parameter]

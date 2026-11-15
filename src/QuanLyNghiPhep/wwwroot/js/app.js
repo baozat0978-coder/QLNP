@@ -37,14 +37,32 @@ window.leaveApp.scrollToId = (id) => {
     function apply() { root.classList.toggle('nav-collapsed', stored()); }
     function hideTip() { if (tip) tip.classList.remove('show'); }
 
+    // Màn hình hẹp (≤1024px): sidebar là ngăn kéo trượt ra, không thu gọn
+    const drawerMq = window.matchMedia('(max-width: 1024px)');
+    function closeDrawer() { root.classList.remove('nav-open'); }
+
     window.leaveApp.toggleNav = function () {
+        if (drawerMq.matches) {
+            root.classList.toggle('nav-open');
+            hideTip();
+            return;
+        }
         const collapsed = root.classList.toggle('nav-collapsed');
         try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch { }
         hideTip();
     };
 
+    // Đóng ngăn kéo: bấm ra ngoài, chọn một mục menu, hoặc nhấn Esc
+    document.addEventListener('click', function (e) {
+        if (!root.classList.contains('nav-open') || !e.target.closest) return;
+        if (e.target.closest('.nav-toggle')) return;
+        if (!e.target.closest('.app-sidebar') || e.target.closest('.app-sidebar .sb-link')) closeDrawer();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDrawer(); });
+    drawerMq.addEventListener('change', function (e) { if (!e.matches) closeDrawer(); });
+
     document.addEventListener('mouseover', function (e) {
-        if (!root.classList.contains('nav-collapsed')) return;
+        if (!root.classList.contains('nav-collapsed') || drawerMq.matches) return;
         const item = e.target.closest && e.target.closest('.app-sidebar .sb-link, .app-sidebar .sb-meta, .app-sidebar .sb-user, .app-sidebar .sb-brand');
         if (!item) { hideTip(); return; }
         const label = item.getAttribute('data-tip') || (item.querySelector('.nav-label') || {}).textContent || '';

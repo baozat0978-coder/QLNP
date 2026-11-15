@@ -1,0 +1,89 @@
+@* Thanh chuyển trang dùng chung, đặt ngay dưới .table-scroll:
+   <Pager Total="list.Count" @bind-Page="page" @bind-PageSize="pageSize" Label="học viên" />
+   Lấy dòng của trang hiện tại bằng Paging.Slice(list, page, pageSize). *@
+<div class="pager">
+    <div class="pager-info">
+        @if (Total == 0)
+        {
+            <span>Không có @Label</span>
+        }
+        else
+        {
+            <span>Hiển thị <b>@(Offset + 1)–@Math.Min(Offset + PageSize, Total)</b> trên tổng <b>@Total</b> @Label</span>
+        }
+    </div>
+    <div class="pager-right">
+        <label class="pager-size">
+            <span>Số dòng</span>
+            <select value="@PageSize" @onchange="ChangeSize" aria-label="Số dòng mỗi trang">
+                @foreach (var n in Paging.Sizes)
+                {
+                    <option value="@n">@n</option>
+                }
+            </select>
+        </label>
+        <nav class="pager-nav" aria-label="Phân trang">
+            <button type="button" disabled="@(Current <= 1)" title="Trang đầu" aria-label="Trang đầu" @onclick="() => Go(1)">«</button>
+            <button type="button" disabled="@(Current <= 1)" title="Trang trước" aria-label="Trang trước" @onclick="() => Go(Current - 1)">‹</button>
+            @foreach (var p in Numbers())
+            {
+                if (p == 0)
+                {
+                    <span class="pager-gap" aria-hidden="true">…</span>
+                }
+                else
+                {
+                    var target = p;
+                    <button type="button" class="@(p == Current ? "active" : "")" aria-current="@(p == Current ? "page" : null)"
+                            aria-label="@($"Trang {p}")" @onclick="() => Go(target)">@p</button>
+                }
+            }
+            <button type="button" disabled="@(Current >= Pages)" title="Trang sau" aria-label="Trang sau" @onclick="() => Go(Current + 1)">›</button>
+            <button type="button" disabled="@(Current >= Pages)" title="Trang cuối" aria-label="Trang cuối" @onclick="() => Go(Pages)">»</button>
+        </nav>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public int Total { get; set; }
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public EventCallback<int> PageChanged { get; set; }
+    [Parameter] public int PageSize { get; set; } = Paging.DefaultSize;
+    [Parameter] public EventCallback<int> PageSizeChanged { get; set; }
+    /// <summary>Tên đơn vị dữ liệu, vd. "học viên", "đơn nghỉ".</summary>
+    [Parameter] public string Label { get; set; } = "bản ghi";
+
+    private int Pages => Paging.TotalPages(Total, PageSize);
+    private int Current => Paging.Clamp(Total, Page, PageSize);
+    private int Offset => (Current - 1) * PageSize;
+
+    private async Task Go(int page)
+    {
+        page = Math.Clamp(page, 1, Pages);
+        if (page != Page) await PageChanged.InvokeAsync(page);
+    }
+
+    private async Task ChangeSize(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var size) || size <= 0) return;
+        // Giữ dòng đầu tiên đang xem vẫn nằm trong trang mới
+        var firstRow = Offset;
+        await PageSizeChanged.InvokeAsync(size);
+        await PageChanged.InvokeAsync(firstRow / size + 1);
+    }
+
+    // Số trang hiển thị: 1 … 4 5 [6] 7 8 … 20  (0 = dấu …)
+    private IEnumerable<int> Numbers()
+    {
+        int pages = Pages, cur = Current;
+        if (pages <= 7) { for (int i = 1; i <= pages; i++) yield return i; yield break; }
+        int start = Math.Max(2, cur - 1), end = Math.Min(pages - 1, cur + 1);
+        if (cur <= 3) { start = 2; end = 4; }
+        if (cur >= pages - 2) { start = pages - 3; end = pages - 1; }
+        yield return 1;
+        if (start > 2) yield return 0;
+        for (int i = start; i <= end; i++) yield return i;
+        if (end < pages - 1) yield return 0;
+        yield return pages;
+    }
+}

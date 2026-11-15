@@ -1,20 +1,27 @@
 @using System.Globalization
-@{ var total = Items.Sum(x => x.Value); double acc = 0; }
+@{
+    var total = Items.Sum(x => x.Value);
+    var parts = Items.Where(x => x.Value > 0).ToList();
+    var gap = parts.Count > 1 ? 0.8 : 0; // khe hở nhỏ giữa các phần
+    double acc = 0;
+}
 <div class="donut-wrap">
-    <svg viewBox="0 0 42 42" class="donut" role="img" aria-label="@CenterLabel">
-        <circle cx="21" cy="21" r="15.9155" fill="none" stroke="#eef1f6" stroke-width="5" />
+    <svg viewBox="0 0 42 42" class="donut" role="img" aria-label="@CenterLabel: @total">
+        <circle cx="21" cy="21" r="15.9155" fill="none" stroke="#eef2f0" stroke-width="4" />
         @if (total > 0)
         {
-            @foreach (var s in Items.Where(x => x.Value > 0))
+            @foreach (var s in parts)
             {
                 var pct = 100.0 * s.Value / total;
-                <circle cx="21" cy="21" r="15.9155" fill="none" stroke="@s.Color" stroke-width="5"
-                        stroke-dasharray="@F(pct) @F(100 - pct)" stroke-dashoffset="@F(25 - acc)" />
+                <circle cx="21" cy="21" r="15.9155" fill="none" stroke="@s.Color" stroke-width="4"
+                        stroke-dasharray="@F(Math.Max(0, pct - gap)) @F(100 - Math.Max(0, pct - gap))" stroke-dashoffset="@F(25 - acc)">
+                    <title>@s.Label: @s.Value</title>
+                </circle>
                 acc += pct;
             }
         }
-        <text x="21" y="21.2" text-anchor="middle" class="donut-num">@total</text>
-        <text x="21" y="25.8" text-anchor="middle" class="donut-lbl">@CenterLabel</text>
+        <text x="21" y="21.6" text-anchor="middle" class="donut-num">@total</text>
+        <text x="21" y="26" text-anchor="middle" class="donut-lbl">@CenterLabel</text>
     </svg>
     <ul class="legend">
         @foreach (var s in Items)

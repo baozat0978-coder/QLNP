@@ -3,25 +3,49 @@
 
 <div class="dash">
     <div class="dash-toolbar">
-        <h2>Tổng quan &amp; Thống kê nghỉ phép</h2>
-        <span class="acc-count">Lớp @SelectedClass &middot; Năm @DateTime.Today.Year</span>
+        <div class="dash-title">
+            <h2>Tổng quan &amp; thống kê nghỉ phép</h2>
+            <p>Số liệu tổng hợp từ các đơn nghỉ phép của lớp @SelectedClass</p>
+        </div>
+        <div class="dash-meta">
+            <span class="dash-chip"><Icon Name="users" />Lớp <b>@SelectedClass</b></span>
+            <span class="dash-chip"><Icon Name="calendar" />Năm <b>@DateTime.Today.Year</b></span>
+        </div>
     </div>
+
     <div class="dash-kpis">
-        <Kpi Accent="k-green" Label="Tổng lượt nghỉ" Value="@OverviewFilteredRecords.Count.ToString()" Sub="@("Lớp " + SelectedClass)" />
-        <Kpi Accent="k-teal" Label="Nghỉ cuối tuần" Value="@OverviewCountCuoiTuan.ToString()" Sub="@((Pct(OverviewCountCuoiTuan)) + "% tổng lượt")" />
-        <Kpi Accent="k-gold" Label="Nghỉ lễ / Tết" Value="@OverviewCountLeTet.ToString()" Sub="@((Pct(OverviewCountLeTet)) + "% tổng lượt")" />
-        <Kpi Accent="k-blue" Label="Nghỉ tranh thủ" Value="@OverviewCountTranhThu.ToString()" Sub="@((Pct(OverviewCountTranhThu)) + "% tổng lượt")" />
-        <Kpi Accent="k-purple" Label="Học viên đã nghỉ" Value="@(StudentsLeft + "/" + ClassStudents.Count)" Sub="@((ClassStudents.Count == 0 ? 0 : (int)Math.Round(100.0 * StudentsLeft / ClassStudents.Count)) + "% quân số")" />
-        <Kpi Accent="k-red" Label="Chờ duyệt" Value="@PendingCount.ToString()" Sub="Chờ Phòng QLHV" />
+        <Kpi Accent="k-green" IconName="file" Label="Tổng lượt nghỉ" Value="@OverviewFilteredRecords.Count.ToString()" Sub="@("Lớp " + SelectedClass)" />
+        <Kpi Accent="k-teal" IconName="calendar" Label="Nghỉ cuối tuần" Value="@OverviewCountCuoiTuan.ToString()" Sub="@((Pct(OverviewCountCuoiTuan)) + "% tổng lượt")" />
+        <Kpi Accent="k-gold" IconName="star" Label="Nghỉ lễ / Tết" Value="@OverviewCountLeTet.ToString()" Sub="@((Pct(OverviewCountLeTet)) + "% tổng lượt")" />
+        <Kpi Accent="k-blue" IconName="clock" Label="Nghỉ tranh thủ" Value="@OverviewCountTranhThu.ToString()" Sub="@((Pct(OverviewCountTranhThu)) + "% tổng lượt")" />
+        <Kpi Accent="k-purple" IconName="users" Label="Học viên đã nghỉ" Value="@(StudentsLeft + "/" + ClassStudents.Count)" Sub="@((ClassStudents.Count == 0 ? 0 : (int)Math.Round(100.0 * StudentsLeft / ClassStudents.Count)) + "% quân số")" />
+        <Kpi Accent="k-red" IconName="history" Label="Chờ duyệt" Value="@PendingCount.ToString()" Sub="Chờ Phòng QLHV" />
     </div>
+
     <div class="dash-row two">
-        <div class="dash-card"><h3>Phân bố theo loại phép</h3><Donut Items="@TypeSlices" CenterLabel="lượt nghỉ" /></div>
-        <div class="dash-card"><h3>Lượt nghỉ theo tháng</h3><div class="sub">Năm @DateTime.Today.Year</div><ColumnChart Items="@Months" Color="@ChartColors.Brand" /></div>
+        <div class="dash-card">
+            <div class="dash-card-head"><div><h3>Phân bố theo loại phép</h3><p class="sub">Tỷ lệ theo số lượt nghỉ</p></div></div>
+            <Donut Items="@TypeSlices" CenterLabel="lượt nghỉ" />
+        </div>
+        <div class="dash-card">
+            <div class="dash-card-head"><div><h3>Lượt nghỉ theo tháng</h3><p class="sub">Đơn còn hiệu lực, tính theo ngày bắt đầu nghỉ</p></div><span class="dash-tag">Năm @DateTime.Today.Year</span></div>
+            <ColumnChart Items="@Months" Color="@ChartColors.Brand" />
+        </div>
     </div>
+
     <div class="dash-row three">
-        <div class="dash-card"><h3>Học viên nghỉ nhiều nhất</h3><RankList Items="@TopStudents" /></div>
-        <div class="dash-card"><h3>Môn học nghỉ tranh thủ</h3><RankList Items="@SubjectRank" Color="@ChartColors.Tranh" /></div>
-        <div class="dash-card"><h3>Trạng thái đơn</h3><StackBar Items="@StatusSlices" /></div>
+        <div class="dash-card">
+            <div class="dash-card-head"><div><h3>Học viên nghỉ nhiều nhất</h3><p class="sub">Xếp theo số lượt nghỉ</p></div></div>
+            <RankList Items="@TopStudents" />
+        </div>
+        <div class="dash-card">
+            <div class="dash-card-head"><div><h3>Môn học nghỉ tranh thủ</h3><p class="sub">Số lượt xin nghỉ theo môn</p></div></div>
+            <RankList Items="@SubjectRank" Color="@ChartColors.Tranh" />
+        </div>
+        <div class="dash-card">
+            <div class="dash-card-head"><div><h3>Trạng thái đơn</h3><p class="sub">Tình trạng xử lý các đơn</p></div></div>
+            <StackBar Items="@StatusSlices" />
+        </div>
     </div>
 </div>
 

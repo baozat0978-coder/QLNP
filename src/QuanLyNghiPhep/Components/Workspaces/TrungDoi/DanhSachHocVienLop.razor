@@ -1,4 +1,5 @@
 @inject AppSession Session
+@inject NotifyService Notify
 @inject IJSRuntime JS
 
 <section class="panel">
@@ -34,18 +35,18 @@
             </select></div>
         <div class="filter-buttons"><button class="btn outline" @onclick="Reset">Đặt lại</button></div>
     </div>
-    @if (!string.IsNullOrEmpty(error)) { <div class="alert error">@error</div> }
     <div class="table-scroll">
         <table class="leave-table">
             <thead>
                 <tr><th>STT</th><th>TÊN HỌC VIÊN</th><th>NGÀY SINH</th><th>SỐ ĐIỆN THOẠI</th><th>SỐ LƯỢT NGHỈ</th></tr>
             </thead>
             <tbody>
-                @for (int i = 0; i < Filtered.Count; i++)
+                @{ var (pageRows, offset) = Paging.Slice(Filtered, page, pageSize); }
+                @for (int i = 0; i < pageRows.Count; i++)
                 {
-                    var s = Filtered[i];
+                    var s = pageRows[i];
                     <tr>
-                        <td>@(i + 1)</td>
+                        <td>@(offset + i + 1)</td>
                         <td><div class="student-name">@s.HoTen</div><span class="subtext">@s.MaHocVien</span></td>
                         <td>@s.NgaySinh</td>
                         <td>@s.SoDienThoai</td>
@@ -56,6 +57,7 @@
             </tbody>
         </table>
     </div>
+    <Pager Total="Filtered.Count" @bind-Page="page" @bind-PageSize="pageSize" Label="học viên" />
 </section>
 
 @code {
@@ -63,7 +65,8 @@
     [Parameter, EditorRequired] public List<Student> ClassStudents { get; set; } = new();
     [Parameter, EditorRequired] public List<LeaveRequest> ClassRecords { get; set; } = new();
 
-    private string keyword = "", leaveFilter = "", sort = "stt", error = "";
+    private string keyword = "", leaveFilter = "", sort = "stt";
+    private int page = 1, pageSize = Paging.DefaultSize;
     private int Count(Student s) => ClassRecords.Count(x => x.MaHocVien == s.MaHocVien && x.TrangThai != LeaveStatuses.Cancelled && x.TrangThai != LeaveStatuses.Rejected);
 
     private List<Student> Filtered
@@ -95,7 +98,7 @@
 
     private async Task Export()
     {
-        error = "";
+        Notify.ClearErrors();
         try
         {
             if (!Session.CanExport) throw new UserAccessException("Vai trò hiện tại không được xuất Excel.");
@@ -105,7 +108,8 @@
             var bytes = ExcelExporter.BuildTable("Học viên " + SelectedClass, rows);
             await JS.InvokeVoidAsync("leaveApp.downloadBase64", $"HocVien_{SelectedClass}.xlsx", Convert.ToBase64String(bytes),
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            Notify.Success($"Đã xuất danh sách {n} học viên lớp {SelectedClass}.");
         }
-        catch (Exception ex) { error = ValidationRules.ErrorMessage(ex); }
+        catch (Exception ex) { Notify.Error(ValidationRules.ErrorMessage(ex)); }
     }
 }

@@ -1,13 +1,12 @@
 @inject AppSession Session
 @inject BackupService Backup
 @inject IJSRuntime JS
+@inject NotifyService Notify
 
 @if (Session.IsAuthenticated && Session.Role == UserRole.Admin)
 {
 <section class="panel form-body">
     <h2>Sao lưu &amp; khôi phục dữ liệu</h2>
-    @if (!string.IsNullOrWhiteSpace(error)) { <div class="alert error">@error</div> }
-    @if (!string.IsNullOrWhiteSpace(message)) { <div class="alert success">@message</div> }
     <div class="row-actions" style="margin:12px 0">
         <button class="btn primary" @onclick="Create">Tạo bản sao lưu ngay</button>
     </div>
@@ -15,7 +14,7 @@
         <table class="leave-table">
             <thead><tr><th>TÊN TỆP</th><th>THỜI GIAN</th><th>DUNG LƯỢNG</th><th></th></tr></thead>
             <tbody>
-                @foreach (var f in files)
+                @foreach (var f in Paging.Slice(files, page, pageSize).Items)
                 {
                     <tr><td>@f.Name</td><td>@f.CreationTime.ToString("HH:mm dd/MM/yyyy")</td><td>@(f.Length / 1024) KB</td>
                         <td><button class="btn outline" @onclick="() => Download(f.Name)">Tải về</button></td></tr>
@@ -24,6 +23,7 @@
             </tbody>
         </table>
     </div>
+    <Pager Total="files.Count" @bind-Page="page" @bind-PageSize="pageSize" Label="bản sao lưu" />
     <h3 style="margin-top:24px">Khôi phục từ bản sao lưu</h3>
     <p class="muted">Chọn tệp .zip đã tải về. Dữ liệu hiện tại được sao lưu tự động trước, và việc khôi phục chỉ áp dụng <b>sau khi khởi động lại ứng dụng</b>.</p>
     @if (Backup.HasPendingRestore) { <div class="alert success">Đã có bản khôi phục đang chờ. Hãy tắt và chạy lại ứng dụng để áp dụng.</div> }
@@ -33,7 +33,7 @@
 
 @code {
     private List<FileInfo> files = new();
-    private string error = "", message = "";
+    private int page = 1, pageSize = Paging.DefaultSize;
     protected override void OnInitialized()
     {
         if (Session.IsAuthenticated && Session.Role == UserRole.Admin)
@@ -41,26 +41,30 @@
     }
     private void Create()
     {
-        error = message = "";
-        try { Backup.CreateBackup(Session); files = Backup.List(); message = "Đã tạo bản sao lưu."; }
-        catch (Exception ex) { error = ValidationRules.ErrorMessage(ex); }
+        Notify.ClearErrors();
+        try { Backup.CreateBackup(Session); files = Backup.List(); Notify.Success("Đã tạo bản sao lưu."); }
+        catch (Exception ex) { Notify.Error(ValidationRules.ErrorMessage(ex)); }
     }
     private async Task Download(string name)
     {
         try { await JS.InvokeVoidAsync("leaveApp.downloadBase64", name, Convert.ToBase64String(Backup.Read(Session, name)), "application/zip"); }
-        catch (Exception ex) { error = ValidationRules.ErrorMessage(ex); }
+        catch (Exception ex) { Notify.Error(ValidationRules.ErrorMessage(ex)); }
     }
     private async Task Restore(InputFileChangeEventArgs e)
     {
-        error = message = "";
+        Notify.ClearErrors();
+        if (!await Notify.ConfirmAsync("Khôi phục dữ liệu?",
+                $"Toàn bộ dữ liệu hiện tại sẽ được thay bằng nội dung tệp \"{e.File.Name}\" sau khi khởi động lại ứng dụng. Dữ liệu hiện tại được sao lưu tự động trước khi thay.",
+                "Khôi phục"))
+            return;
         try
         {
             using var ms = new MemoryStream();
             await using (var s = e.File.OpenReadStream(200L * 1024 * 1024)) await s.CopyToAsync(ms);
             ms.Position = 0;
             Backup.StageRestore(Session, ms);
-            message = "Đã nhận bản sao lưu. Hãy tắt và chạy lại ứng dụng để khôi phục.";
+            Notify.Success("Đã nhận bản sao lưu. Hãy tắt và chạy lại ứng dụng để khôi phục.");
         }
-        catch (Exception ex) { error = ex is InvalidDataException ? "Tệp zip không hợp lệ." : ValidationRules.ErrorMessage(ex); }
+        catch (Exception ex) { Notify.Error(ex is InvalidDataException ? "Tệp zip không hợp lệ." : ValidationRules.ErrorMessage(ex)); }
     }
 }

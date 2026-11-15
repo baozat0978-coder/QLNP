@@ -20,7 +20,7 @@
                 <Icon Name="chart" /><span class="nav-label">Thống kê</span>
             </button>
             <div class="sb-caption">Danh mục</div>
-            <button type="button" class="sb-link @(phongTab is "classes" or "add-class" or "import-class" ? "active" : "")" @onclick='() => SwitchTab("classes")'>
+            <button type="button" class="sb-link @(phongTab is "classes" or "add-class" ? "active" : "")" @onclick='() => SwitchTab("classes")'>
                 <Icon Name="users" /><span class="nav-label">Danh sách các lớp &amp; học viên</span>
             </button>
             <button type="button" class="sb-link @(phongTab == "catalog" ? "active" : "")" @onclick='() => SwitchTab("catalog")'>
@@ -39,14 +39,6 @@
         </header>
 
         <main class="content">
-            @if (!string.IsNullOrWhiteSpace(Notice))
-            {
-                <div class="alert success" role="status">@Notice <button @onclick="() => OnNotice.InvokeAsync(string.Empty)">×</button></div>
-            }
-            @if (!string.IsNullOrWhiteSpace(PageError))
-            {
-                <div class="alert error" role="alert">@PageError <button @onclick="() => OnError.InvokeAsync(string.Empty)">×</button></div>
-            }
 
             @if (phongTab == "records")
             {
@@ -109,14 +101,13 @@
                                    AllStudents="@AllStudents"
                                    AllRecords="@AllRecords"
                                    OnOpenCreateClass='() => SwitchTab("add-class")'
-                                   OnOpenImportClass='() => SwitchTab("import-class")'
                                    OnDataChanged="@OnDataChanged"
                                    OnNotice="@OnNotice"
                                    OnError="@OnError" />
-                @if (phongTab is "add-class" or "import-class")
+                @if (phongTab == "add-class")
                 {
                     <div class="overlay"><div class="modal-box xl" @onclick:stopPropagation="true">
-                        <TaoDanhSachLopMoi @key="phongTab" Mode="@ImportMode" OnBack='() => SwitchTab("classes")'
+                        <TaoDanhSachLopMoi OnBack='() => SwitchTab("classes")'
                                    OnClassCreated="HandleClassCreated"
                                    OnNotice="@OnNotice"
                                    OnError="@OnError" />
@@ -131,16 +122,13 @@
     [Parameter, EditorRequired] public List<ClassGroup> ClassGroups { get; set; } = new();
     [Parameter, EditorRequired] public List<Student> AllStudents { get; set; } = new();
     [Parameter, EditorRequired] public List<LeaveRequest> AllRecords { get; set; } = new();
-    [Parameter] public string Notice { get; set; } = "";
-    [Parameter] public string PageError { get; set; } = "";
     [Parameter] public EventCallback OnDataChanged { get; set; }
     [Parameter] public EventCallback OnExportExcel { get; set; }
     [Parameter] public EventCallback<string> OnNotice { get; set; }
     [Parameter] public EventCallback<string> OnError { get; set; }
 
     private string phongTab = "records";
-    private string ImportMode => phongTab == "import-class" ? "excel" : "manual";
-    private static readonly string[] Tabs = { "records", "pending", "stats", "classes", "catalog", "add-class", "import-class" };
+    private static readonly string[] Tabs = { "records", "pending", "stats", "classes", "catalog", "add-class" };
     protected override void OnInitialized()
     {
         if (TabFromUri(Navigation) is { } t && Tabs.Contains(t)) phongTab = t;
@@ -152,7 +140,9 @@
         if (Tabs.Contains(t) && t != phongTab) { phongTab = t; _ = InvokeAsync(StateHasChanged); }
     }
     public void Dispose() => Navigation.LocationChanged -= OnLocation;
-    private static string? TabFromUri(NavigationManager nav)
+    // Liên kết cũ ?tab=import-class (trước khi gộp "Nhập từ Excel" vào "Tạo lớp mới") vẫn mở đúng màn tạo lớp
+    private static string? TabFromUri(NavigationManager nav) => RawTabFromUri(nav) is "import-class" ? "add-class" : RawTabFromUri(nav);
+    private static string? RawTabFromUri(NavigationManager nav)
     {
         var q = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(nav.Uri).Query);
         return q.TryGetValue("tab", out var v) ? v.ToString() : null;

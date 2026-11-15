@@ -1,5 +1,6 @@
 @inject AppSession Session
 @inject LeaveRepository Repository
+@inject NotifyService Notify
 
 <section class="panel">
     <div class="panel-head" style="background: linear-gradient(135deg, #1b4d3e, #0d3326); border-radius: 12px 12px 0 0; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; border-bottom: none;">
@@ -21,16 +22,14 @@
             <select @bind="facultyFilter"><option value="">Tất cả</option>@foreach (var f in subjects.Select(x => x.Faculty).Distinct().OrderBy(x => x)) { <option value="@f">@f</option> }</select></div>
         <div class="filter-buttons"><button type="button" class="btn outline" @onclick="ResetFilters">Đặt lại</button></div>
     </div>
-    @if (!string.IsNullOrWhiteSpace(error) && !showForm) { <div class="alert error">@error</div> }
-    @if (!string.IsNullOrWhiteSpace(message)) { <div class="alert success">@message</div> }
     <div class="table-scroll">
         <table class="leave-table">
             <thead>
                 <tr><th>STT</th><th>MÃ MÔN</th><th>TÊN MÔN</th><th>KHOA GIẢNG DẠY</th><th></th></tr>
             </thead>
             <tbody>
-                @{ int n = 0; }
-                @foreach (var subject in Filtered)
+                @{ var (pageRows, n) = Paging.Slice(Filtered, page, pageSize); }
+                @foreach (var subject in pageRows)
                 {
                     n++;
                     <tr>
@@ -48,7 +47,7 @@
             </tbody>
         </table>
     </div>
-    <div class="table-pagination"><span>Hiển thị <b>@(Filtered.Count == 0 ? 0 : 1) – @Filtered.Count</b> / @Filtered.Count môn học</span></div>
+    <Pager Total="Filtered.Count" @bind-Page="page" @bind-PageSize="pageSize" Label="môn học" />
 </section>
 
 @if (showForm)
@@ -109,8 +108,7 @@
     private string code = "";
     private string name = "";
     private string faculty = "";
-    private string error = "";
-    private string message = "";
+    private string error = ""; // lỗi nhập liệu, hiển thị ngay trong form thêm/sửa
 
     private List<ClassSubject> subjects = new();
     private List<FacultyOption> faculties = new();
@@ -122,7 +120,6 @@
             return;
 
         error = "";
-        message = "";
         code = "";
         name = "";
         faculty = "";
@@ -138,42 +135,49 @@
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            Notify.Error(ValidationRules.ErrorMessage(ex));
         }
     }
 
     private string keyword = "", facultyFilter = "";
+    private int page = 1, pageSize = Paging.DefaultSize;
     private List<ClassSubject> Filtered => subjects.Where(x =>
         (string.IsNullOrWhiteSpace(keyword) || x.Code.Contains(keyword.Trim(), StringComparison.OrdinalIgnoreCase) || x.Name.Contains(keyword.Trim(), StringComparison.OrdinalIgnoreCase))
         && (facultyFilter == "" || x.Faculty == facultyFilter)).ToList();
     private void ResetFilters() { keyword = ""; facultyFilter = ""; }
     private bool showForm;
-    private void OpenAdd() { editingId = null; code = name = faculty = ""; error = message = ""; showForm = true; }
+    private void OpenAdd() { editingId = null; code = name = faculty = ""; error = ""; showForm = true; }
     private int? editingId;
-    private void StartEdit(ClassSubject x) { editingId = x.Id; code = x.Code; name = x.Name; faculty = x.FacultyUserId; error = message = ""; showForm = true; }
+    private void StartEdit(ClassSubject x) { editingId = x.Id; code = x.Code; name = x.Name; faculty = x.FacultyUserId; error = ""; showForm = true; }
     private void CancelEdit() { editingId = null; code = name = faculty = ""; showForm = false; error = ""; }
-    private void Remove(ClassSubject x)
+    private async Task Remove(ClassSubject x)
     {
-        error = message = "";
-        try { Repository.DeleteClassSubject(Session, x.Id); subjects = Repository.GetClassSubjects(Session, SelectedClass); message = "Đã xóa môn học."; }
-        catch (Exception ex) { error = ValidationRules.ErrorMessage(ex); }
+        if (!await Notify.ConfirmAsync("Xóa môn học?", $"Môn \"{x.Name}\" ({x.Code}) sẽ bị xóa khỏi lớp {SelectedClass}."))
+            return;
+        try
+        {
+            Repository.DeleteClassSubject(Session, x.Id);
+            subjects = Repository.GetClassSubjects(Session, SelectedClass);
+            Notify.Success($"Đã xóa môn {x.Name} khỏi lớp {SelectedClass}.");
+        }
+        catch (Exception ex) { Notify.Error(ValidationRules.ErrorMessage(ex)); }
     }
     private void SaveSubject()
     {
         if (editingId is null) { AddSubject(); return; }
-        error = message = "";
+        error = "";
         try
         {
             Repository.UpdateClassSubject(Session, editingId.Value, code, name, faculty);
             subjects = Repository.GetClassSubjects(Session, SelectedClass);
-            CancelEdit(); message = "Đã cập nhật môn học.";
+            var saved = name.Trim();
+            CancelEdit(); Notify.Success($"Đã cập nhật môn {saved}.");
         }
         catch (Exception ex) { error = ValidationRules.ErrorMessage(ex); }
     }
     private void AddSubject()
     {
         error = "";
-        message = "";
 
         try
         {
@@ -187,15 +191,14 @@
             subjects = Repository.GetClassSubjects(
                 Session, SelectedClass);
 
+            Notify.Success($"Đã thêm môn {name.Trim()} vào lớp {SelectedClass}.");
             code = "";
             name = "";
             faculty = "";
-
-            message = "Đã thêm môn học vào lớp.";
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            error = ValidationRules.ErrorMessage(ex);
         }
     }
 }

@@ -1,20 +1,39 @@
 @using System.Globalization
-@{ var max = Math.Max(1, Items.Select(x => x.Value).DefaultIfEmpty(0).Max()); }
-<div class="cc" style="height:@(Height)px">
-    @foreach (var it in Items)
-    {
-        <div class="cc-col" title="@it.Label: @it.Value">
-            <span class="cc-val">@(it.Value > 0 ? it.Value.ToString() : "")</span>
-            <div class="cc-bar" style="height:calc((100% - 20px) * @R(it.Value, max));background:@Color"></div>
+@{
+    var max = Items.Select(x => x.Value).DefaultIfEmpty(0).Max();
+    // Trục Y: 4 khoảng chia số nguyên, chừa ~12% khoảng trống phía trên cho nhãn giá trị
+    var step = Math.Max(1, (int)Math.Ceiling(max * 1.12 / 4));
+    var top = step * 4;
+}
+<div class="colc" style="--h:@(Height)px">
+    <div class="colc-y" aria-hidden="true">
+        @for (int i = 4; i >= 0; i--) { <span>@(step * i)</span> }
+    </div>
+    <div class="colc-plot">
+        <div class="colc-grid" aria-hidden="true">@for (int i = 0; i < 5; i++) { <i></i> }</div>
+        <div class="colc-bars">
+            @foreach (var it in Items)
+            {
+                <div class="colc-col" title="@it.Label: @it.Value">
+                    @if (it.Value > 0)
+                    {
+                        <div class="colc-bar" style="height:@R(it.Value, top)%;background:@Color"><span class="colc-val">@it.Value</span></div>
+                    }
+                    else
+                    {
+                        <div class="colc-bar zero"></div>
+                    }
+                </div>
+            }
         </div>
-    }
-</div>
-<div class="cc-axis">
-    @foreach (var it in Items) { <span>@it.Label</span> }
+    </div>
+    <div class="colc-x">
+        @foreach (var it in Items) { <span>@it.Label</span> }
+    </div>
 </div>
 @code {
     [Parameter, EditorRequired] public List<ChartPoint> Items { get; set; } = new();
     [Parameter] public string Color { get; set; } = ChartColors.Brand;
-    [Parameter] public int Height { get; set; } = 200;
-    private static string R(int v, int max) => ((double)v / max).ToString("0.###", CultureInfo.InvariantCulture);
+    [Parameter] public int Height { get; set; } = 220;
+    private static string R(int v, int top) => (100.0 * v / top).ToString("0.##", CultureInfo.InvariantCulture);
 }

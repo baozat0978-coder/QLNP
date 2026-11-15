@@ -145,13 +145,20 @@ public static class ClassListImporter
         => string.Concat(value.Normalize(NormalizationForm.FormD).Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
             .Select(c => c is 'đ' or 'Đ' ? 'd' : char.ToLowerInvariant(c)).Where(char.IsLetterOrDigit));
 
+    // Các tiêu đề cột hay gặp; dùng để nhận ra "có dòng tiêu đề nhưng thiếu cột bắt buộc".
+    private static readonly HashSet<string> KnownHeaders =
+        ["stt", "tt", "ten", "hoten", "hovaten", "tenhocvien", "lop", "tenlop", "ngaysinh", "sodienthoai", "dienthoai", "sdt", "mahv", "mahocvien"];
+
+    private static readonly string[] DateFormats =
+        ["d/M/yyyy", "dd/MM/yyyy", "yyyy-MM-dd", "d-M-yyyy", "dd-MM-yyyy", "d.M.yyyy", "dd.MM.yyyy"];
+
     private static List<Student> ConvertRows(List<string[]> rows, string fallbackClass, bool date1904)
     {
         if (rows.Count == 0)
             return [];
 
         int headerRow = -1;
-        int nameCol = -1, classCol = -1, dateCol = -1, phoneCol = -1, codeCol = -1;
+        int nameCol = -1, surnameCol = -1, classCol = -1, dateCol = -1, phoneCol = -1, codeCol = -1, sttCol = -1;
         string detectedClass = fallbackClass;
 
         // 1. Quét các dòng đầu để tự động tìm dòng tiêu đề thật (Họ tên, Ngày sinh, SĐT...)
@@ -159,9 +166,14 @@ public static class ClassListImporter
         {
             var headers = rows[r].Select(HeaderKey).ToList();
             int Index(params string[] names) => headers.FindIndex(h => names.Any(n => h.Contains(n)));
+            int Exact(params string[] names) => headers.FindIndex(h => names.Contains(h));
 
-            int n = Index("ten", "hoten", "hovaten", "tenhocvien");
-            int d = Index("ngaysinh", "ngaythangnamsinh", "ns");
+            // Cột họ tên: ưu tiên "Họ và tên"/"Họ tên"; chỉ nhận cột chứa "tên" nếu không phải "Tên lớp", "Tên đăng nhập"...
+            int n = Index("hovaten", "hoten", "tenhocvien");
+            if (n < 0)
+                n = headers.FindIndex(h => h.Contains("ten") && !h.Contains("lop") && !h.Contains("dangnhap") && !h.Contains("taikhoan"));
+            int d = Index("ngaysinh", "ngaythangnamsinh");
+            if (d < 0) d = Exact("ns");
             int p = Index("sodienthoai", "dienthoai", "sdt", "phone");
 
             if (n >= 0 && (d >= 0 || p >= 0))
@@ -170,8 +182,12 @@ public static class ClassListImporter
                 nameCol = n;
                 dateCol = d;
                 phoneCol = p;
-                classCol = Index("lop", "tenlop");
+                classCol = Index("lop");
                 codeCol = Index("mahocvien", "mahv", "masv", "sohieu");
+                sttCol = Exact("stt", "tt", "sott");
+                // Họ tên tách 2 cột: "Họ (và) đệm" + "Tên"
+                if (headers[n] == "ten")
+                    surnameCol = Exact("hodem", "hovadem", "ho", "hovatendem");
                 break;
             }
 
@@ -189,9 +205,12 @@ public static class ClassListImporter
             }
         }
 
-        // Nếu file không có dòng tiêu đề cột, dùng vị trí mặc định
+        // Nếu file không có dòng tiêu đề cột, dùng vị trí mặc định.
+        // Nhưng nếu thấy tiêu đề mà thiếu cột bắt buộc thì báo lỗi, không đọc dòng tiêu đề thành học viên.
         if (headerRow < 0)
         {
+            if (rows.Take(15).Any(row => row.Count(c => KnownHeaders.Contains(HeaderKey(c))) >= 2))
+                throw new InvalidDataException("Tệp thiếu cột bắt buộc: cần cột \"Họ và tên\" và ít nhất một trong hai cột \"Ngày sinh\" hoặc \"Số điện thoại\".");
             int offset = rows[0].Length == 4 ? 0 : 1;
             nameCol = offset;
             classCol = offset + 1;
@@ -207,15 +226,32 @@ public static class ClassListImporter
         {
             string Cell(int column) => column >= 0 && column < rows[r].Length ? rows[r][column].Trim() : "";
             var name = Cell(nameCol);
+            if (surnameCol >= 0 && !string.IsNullOrWhiteSpace(Cell(surnameCol)))
+                name = $"{Cell(surnameCol)} {name}".Trim();
+            var date = Cell(dateCol);
+            var phone = NormalizePhone(Cell(phoneCol));
+            var code = Cell(codeCol);
 
-            // Bỏ qua dòng trống hoặc dòng chữ lặp lại
-            if (string.IsNullOrWhiteSpace(name) || name.Equals("Họ và tên", StringComparison.OrdinalIgnoreCase) || name.StartsWith("DANH SÁCH", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                // Dòng có dữ liệu học viên mà thiếu họ tên: báo lỗi thay vì lặng lẽ bỏ mất học viên
+                if (!string.IsNullOrWhiteSpace(date) || !string.IsNullOrWhiteSpace(phone) || !string.IsNullOrWhiteSpace(code))
+                    throw new InvalidDataException($"Dòng {r + 1} trong tệp có dữ liệu nhưng thiếu họ tên học viên.");
+                continue;
+            }
+
+            // Bỏ qua dòng tiêu đề lặp lại
+            if (name.Equals("Họ và tên", StringComparison.OrdinalIgnoreCase) || name.StartsWith("DANH SÁCH", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var date = Cell(dateCol);
+            // Bỏ qua dòng ghi chú cuối bảng ("Tổng số: ...", "Người lập biểu"): không STT và không có dữ liệu nào khác
+            if (sttCol >= 0 && string.IsNullOrWhiteSpace(Cell(sttCol)) && string.IsNullOrWhiteSpace(date)
+                && string.IsNullOrWhiteSpace(phone) && string.IsNullOrWhiteSpace(code))
+                continue;
+
             if (double.TryParse(date, NumberStyles.Float, CultureInfo.InvariantCulture, out var serial) && serial > 10000 && serial < 100000)
                 date = DateTime.FromOADate(serial + (date1904 ? 1462 : 0)).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
-            else if (DateTime.TryParseExact(date, ["d/M/yyyy", "dd/MM/yyyy", "yyyy-MM-dd", "d-M-yyyy", "dd-MM-yyyy"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+            else if (DateTime.TryParseExact(date, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
                 date = parsed.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
 
             string studentClass = classCol >= 0 && !string.IsNullOrWhiteSpace(Cell(classCol)) ? Cell(classCol) : detectedClass.Trim();
@@ -223,11 +259,11 @@ public static class ClassListImporter
             result.Add(new Student
             {
                 STT = result.Count + 1,
-                MaHocVien = Cell(codeCol),
+                MaHocVien = code,
                 HoTen = name,
                 Lop = studentClass,
                 NgaySinh = date,
-                SoDienThoai = Cell(phoneCol)
+                SoDienThoai = phone
             });
         }
 
@@ -235,6 +271,19 @@ public static class ClassListImporter
             throw new InvalidDataException($"Chỉ nhập tối đa {ValidationRules.MaxImportRows} học viên.");
 
         return result;
+    }
+
+    // Chuẩn hóa SĐT: bỏ dấu cách/chấm/gạch, đổi +84 thành 0, và thêm lại số 0 đầu
+    // bị Excel cắt mất khi ô được lưu dạng số (912345678 -> 0912345678).
+    // Giá trị không phải số được giữ nguyên để bước kiểm tra báo lỗi cho người dùng sửa.
+    private static string NormalizePhone(string value)
+    {
+        var digits = value.Replace(" ", "").Replace(".", "").Replace("-", "");
+        if (digits.StartsWith("+84")) digits = "0" + digits[3..];
+        else if (digits.StartsWith("84") && digits.Length == 11) digits = "0" + digits[2..];
+        if (digits.Length == 0 || !digits.All(char.IsAsciiDigit))
+            return value;
+        return digits.Length == 9 && digits[0] != '0' ? "0" + digits : digits;
     }
 
     private static int ParseColumnIndex(string reference)

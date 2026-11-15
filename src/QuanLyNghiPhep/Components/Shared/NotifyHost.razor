@@ -1,0 +1,94 @@
+@implements IDisposable
+@inject NotifyService Notify
+
+@* Vùng toast góc trên bên phải + hộp xác nhận dùng chung. Đặt một lần trong Home.razor. *@
+<div class="nt-stack" aria-live="polite">
+    @foreach (var t in Notify.Toasts)
+    {
+        <div @key="t.Id" class="nt @KindClass(t.Kind)" role="@(t.Kind == ToastKind.Error ? "alert" : "status")">
+            <span class="nt-ic" aria-hidden="true">
+                @if (t.Kind == ToastKind.Success)
+                {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                }
+                else if (t.Kind == ToastKind.Error)
+                {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="7" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                }
+                else
+                {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="11" x2="12" y2="17" /><line x1="12" y1="7" x2="12.01" y2="7" /></svg>
+                }
+            </span>
+            <div class="nt-body">
+                <strong>@t.Title</strong>
+                <span>@t.Message</span>
+            </div>
+            <button type="button" class="nt-close" aria-label="Đóng thông báo" @onclick="() => Notify.Dismiss(t.Id)">×</button>
+        </div>
+    }
+</div>
+
+@if (Notify.PendingConfirm is { } c)
+{
+    <div class="overlay nt-overlay" @onclick="() => Notify.ResolveConfirm(false)">
+        <div class="modal confirm-modal nt-confirm" role="alertdialog" aria-modal="true" aria-labelledby="nt-confirm-title"
+             @onclick:stopPropagation="true" @onkeydown="OnKey">
+            <div class="nt-confirm-ic @(c.Danger ? "danger" : "")" aria-hidden="true">
+                @if (c.Danger)
+                {
+                    <Icon Name="trash" />
+                }
+                else
+                {
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                }
+            </div>
+            <h2 id="nt-confirm-title">@c.Title</h2>
+            <p>@c.Message</p>
+            <div class="modal-actions center">
+                <button type="button" class="btn outline" @ref="cancelButton" @onclick="() => Notify.ResolveConfirm(false)">Hủy</button>
+                <button type="button" class="btn @(c.Danger ? "danger" : "primary")" @onclick="() => Notify.ResolveConfirm(true)">@c.ConfirmText</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private ElementReference cancelButton;
+    private ConfirmRequest? focused;
+
+    protected override void OnInitialized() => Notify.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Mới mở hộp xác nhận: đặt focus vào "Hủy" để Enter không vô tình xóa, Esc đóng được ngay
+        if (Notify.PendingConfirm is { } c && !ReferenceEquals(c, focused))
+        {
+            focused = c;
+            try { await cancelButton.FocusAsync(); } catch (JSException) { } catch (InvalidOperationException) { }
+        }
+        else if (Notify.PendingConfirm is null)
+            focused = null;
+    }
+
+    private void OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") Notify.ResolveConfirm(false);
+    }
+
+    private static string KindClass(ToastKind kind) => kind switch
+    {
+        ToastKind.Success => "nt-ok",
+        ToastKind.Error => "nt-err",
+        _ => "nt-info"
+    };
+
+    public void Dispose()
+    {
+        Notify.Changed -= OnChanged;
+        if (Notify.PendingConfirm is not null) Notify.ResolveConfirm(false);
+    }
+}

@@ -104,8 +104,8 @@
                                     }
                             else
                                     {
-                                        int stt = 0;
-                                        @foreach (var item in BoMonFilteredRecords)
+                                        var (pageRows, stt) = Paging.Slice(BoMonFilteredRecords, page, pageSize);
+                                        @foreach (var item in pageRows)
                                         {
                                             stt++;
                                             <tr @key="item.Id">
@@ -160,6 +160,7 @@
                             </tbody>
                         </table>
                     </div>
+                    <Pager Total="BoMonFilteredRecords.Count" @bind-Page="page" @bind-PageSize="pageSize" Label="lượt nghỉ" />
                 </section>
             </main>
         </div>
@@ -179,6 +180,7 @@
         private string boMonSelectedClass = "";
         private string boMonSelectedSubject = "";
         private string boMonKeyword = "";
+        private int page = 1, pageSize = Paging.DefaultSize;
         private string loadError = "";
 
         private List<ClassSubject> facultySubjects = new();

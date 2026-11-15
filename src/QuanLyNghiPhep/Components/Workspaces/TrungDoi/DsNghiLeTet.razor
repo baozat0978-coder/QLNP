@@ -52,7 +52,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @for (int i = 0; i < ClassStudents.Count; i++)
+                        @{ var selOffset = (Paging.Clamp(ClassStudents.Count, holidaySelPage, holidaySelSize) - 1) * holidaySelSize; }
+                        @for (int i = selOffset; i < Math.Min(selOffset + holidaySelSize, ClassStudents.Count); i++)
                         {
                             var s = ClassStudents[i];
                             bool isOnDuty = holidayDutyCodes.Contains(s.MaHocVien);
@@ -72,6 +73,7 @@
                     </tbody>
                 </table>
             </div>
+            <Pager Total="ClassStudents.Count" @bind-Page="holidaySelPage" @bind-PageSize="holidaySelSize" Label="học viên" />
 
             @if (!string.IsNullOrEmpty(formError)) { <div class="alert error form-error" role="alert"> @formError</div> }
         <div class="form-footer">
@@ -102,7 +104,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var item in holidayDraftItems)
+                        @foreach (var item in Paging.Slice(holidayDraftItems, holidayDraftPage, holidayDraftSize).Items)
                         {
                             <tr>
                                 <td><b>@item.STT</b></td>
@@ -131,6 +133,7 @@
                     </tbody>
                 </table>
             </div>
+            <Pager Total="holidayDraftItems.Count" @bind-Page="holidayDraftPage" @bind-PageSize="holidayDraftSize" Label="học viên nghỉ" />
 
             @if (!string.IsNullOrEmpty(formError)) { <div class="alert error form-error" role="alert"> @formError</div> }
         <div class="form-footer">
@@ -182,6 +185,7 @@
     private DateTime holidayTo = new(2026, 5, 3, 17, 0, 0);
     private HashSet<string> holidayDutyCodes = new(StringComparer.OrdinalIgnoreCase);
     private List<BatchLeaveDraftItem> holidayDraftItems = new();
+    private int holidaySelPage = 1, holidaySelSize = Paging.DefaultSize, holidayDraftPage = 1, holidayDraftSize = Paging.DefaultSize;
 
     private static DateTime SetHour(DateTime current, string time)
     {

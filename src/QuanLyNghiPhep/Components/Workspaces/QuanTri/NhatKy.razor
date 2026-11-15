@@ -13,7 +13,7 @@
         <table class="leave-table">
             <thead><tr><th>THỜI GIAN</th><th>NGƯỜI THỰC HIỆN</th><th>HÀNH ĐỘNG</th><th>CHI TIẾT</th></tr></thead>
             <tbody>
-                @foreach (var x in Filtered)
+                @foreach (var x in Paging.Slice(Filtered, page, pageSize).Items)
                 {
                     <tr><td class="time-main">@x.At.ToString("HH:mm dd/MM/yyyy")</td><td>@x.User</td><td><span class="type-pill">@x.Action</span></td><td>@x.Detail</td></tr>
                 }
@@ -21,12 +21,14 @@
             </tbody>
         </table>
     </div>
+    <Pager Total="Filtered.Count()" @bind-Page="page" @bind-PageSize="pageSize" Label="thao tác" />
 </section>
 }
 
 @code {
     private List<AuditView> rows = new();
     private string keyword = "", error = "";
+    private int page = 1, pageSize = Paging.DefaultSize;
     private IEnumerable<AuditView> Filtered => rows.Where(x => string.IsNullOrWhiteSpace(keyword)
         || x.User.Contains(keyword, StringComparison.OrdinalIgnoreCase) || x.Action.Contains(keyword, StringComparison.OrdinalIgnoreCase)
         || x.Detail.Contains(keyword, StringComparison.OrdinalIgnoreCase));

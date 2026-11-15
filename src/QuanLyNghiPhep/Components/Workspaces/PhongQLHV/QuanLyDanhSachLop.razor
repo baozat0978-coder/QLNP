@@ -1,6 +1,7 @@
 @inject AppSession Session
 @inject LeaveRepository Repository
 @inject AdminService Accounts
+@inject NotifyService Notify
 
 @if (string.IsNullOrWhiteSpace(selectedClassToManage))
 {
@@ -14,7 +15,6 @@
         <div class="table-toolbar">
             <span class="toolbar-count">@ClassGroups.Count lớp · @AllStudents.Count học viên</span>
             <div class="row-actions">
-                <button type="button" class="btn outline" @onclick="OnOpenImportClass"><Icon Name="upload" />Nhập từ Excel</button>
                 <button type="button" class="btn primary" @onclick="OnOpenCreateClass"><Icon Name="plus" />Tạo lớp mới</button>
             </div>
         </div>
@@ -40,8 +40,8 @@
                     }
                     else
                     {
-                        int stt = 0;
-                        @foreach (var cls in ClassGroups)
+                        var (classRows, stt) = Paging.Slice(ClassGroups, classPage, classPageSize);
+                        @foreach (var cls in classRows)
                         {
                             stt++;
                             int countHv = AllStudents.Count(x => x.Lop.Equals(cls.TenLop, StringComparison.OrdinalIgnoreCase));
@@ -68,6 +68,7 @@
                 </tbody>
             </table>
         </div>
+        <Pager Total="ClassGroups.Count" @bind-Page="classPage" @bind-PageSize="classPageSize" Label="lớp" />
     </section>
 }
 else
@@ -111,17 +112,9 @@ else
             </div>
 
             <div class="filter-buttons" style="flex: 0 0 auto; display: flex; gap: 8px;">
-                <button type="button" class="btn danger" style="white-space: nowrap; padding: 0 16px; min-width: max-content;" @onclick="() => confirmDeleteClass = true">Xóa lớp</button>
+                <button type="button" class="btn danger" style="white-space: nowrap; padding: 0 16px; min-width: max-content;" @onclick="DeleteClass">Xóa lớp</button>
             </div>
 
-            @if (confirmDeleteClass)
-            {
-                <div class="alert error" style="width: 100%; margin-top: 10px;">
-                    Xóa lớp <b>@selectedClassToManage</b> cùng toàn bộ học viên? Chỉ xóa được lớp chưa có đơn nghỉ.
-                    <button class="btn danger" @onclick="DeleteClass">Xác nhận xóa</button>
-                    <button class="btn outline" @onclick="() => confirmDeleteClass = false">Hủy</button>
-                </div>
-            }
         </div>
 
         @if (showAddStudentForm)
@@ -180,8 +173,8 @@ else
                     }
                     else
                     {
-                        int idx = 0;
-                        @foreach (var s in FilteredClassStudents)
+                        var (studentRows, idx) = Paging.Slice(FilteredClassStudents, studentPage, studentPageSize);
+                        @foreach (var s in studentRows)
                         {
                             idx++;
                             bool isEditing = editingStudentCode == s.MaHocVien && editingDraft is not null;
@@ -230,7 +223,7 @@ else
                                             <button type="button" class="btn small outline" @onclick="() => StartEditStudent(s)"> Sửa</button>
                                             @if(s.IsActive)
                                             {
-                                                <button type="button" class="btn small danger" @onclick="()=>pendingRemoval=s">Ngừng theo dõi / Xóa</button>
+                                                <button type="button" class="btn small danger" @onclick="()=>RemoveStudent(s)">Ngừng theo dõi / Xóa</button>
                                             }
                                             else { <button type="button" class="btn small primary" @onclick="()=>RestoreStudent(s)">Khôi phục</button> }
                                         </div>
@@ -242,25 +235,15 @@ else
                 </tbody>
             </table>
         </div>
+        <Pager Total="FilteredClassStudents.Count" @bind-Page="studentPage" @bind-PageSize="studentPageSize" Label="học viên" />
     </section>
 }
 
-@if(pendingRemoval is { } target)
-{
-    <div class="overlay"><div class="modal form-body" role="dialog" aria-modal="true">
-        <h2>Xác nhận xử lý học viên @target.HoTen</h2>
-        <p>Học viên có hồ sơ sẽ được chuyển sang ngừng theo dõi, giữ nguyên toàn bộ đơn nghỉ và lịch sử. Chỉ hồ sơ chưa phát sinh dữ liệu mới bị xóa hẳn.</p>
-        <button class="btn danger" @onclick="()=>RemoveStudent(target)">Xác nhận</button>
-        <button class="btn outline" @onclick="()=>pendingRemoval=null">Hủy</button>
-    </div></div>
-}
 @code {
-    private Student? pendingRemoval;
     [Parameter, EditorRequired] public List<ClassGroup> ClassGroups { get; set; } = new();
     [Parameter, EditorRequired] public List<Student> AllStudents { get; set; } = new();
     [Parameter, EditorRequired] public List<LeaveRequest> AllRecords { get; set; } = new();
     [Parameter] public EventCallback OnOpenCreateClass { get; set; }
-    [Parameter] public EventCallback OnOpenImportClass { get; set; }
     [Parameter] public EventCallback OnDataChanged { get; set; }
     [Parameter] public EventCallback<string> OnNotice { get; set; }
     [Parameter] public EventCallback<string> OnError { get; set; }
@@ -269,6 +252,8 @@ else
     private string editingClassManager = "trungdoi";
     private List<string> trungDoiAccounts = new();
     private string studentSearch = "";
+    private int classPage = 1, classPageSize = Paging.DefaultSize;
+    private int studentPage = 1, studentPageSize = Paging.DefaultSize;
 
     private bool showAddStudentForm = false;
     private Student newStudent = new() { NgaySinh = "" };
@@ -307,7 +292,7 @@ else
     private async Task OpenManageClass(ClassGroup cls)
     {
         await LoadTrungDoiAccounts();
-        selectedClassToManage = cls.TenLop;
+        selectedClassToManage = cls.TenLop; studentPage = 1;
         editingClassManager = string.IsNullOrWhiteSpace(cls.NguoiTao) ? "trungdoi" : cls.NguoiTao;
         studentSearch = "";
         showAddStudentForm = false;
@@ -317,18 +302,20 @@ else
         await OnNotice.InvokeAsync("");
     }
 
-    private bool confirmDeleteClass;
     private async Task DeleteClass()
     {
+        var old = selectedClassToManage;
+        if (!await Notify.ConfirmAsync($"Xóa lớp {old}?",
+                $"Lớp {old} cùng toàn bộ học viên trong lớp sẽ bị xóa. Chỉ xóa được lớp chưa có đơn nghỉ.", "Xóa lớp"))
+            return;
         try
         {
-            var old = selectedClassToManage;
             Repository.DeleteClass(Session, old);
-            confirmDeleteClass = false; selectedClassToManage = "";
+            selectedClassToManage = "";
             await OnDataChanged.InvokeAsync();
             await OnNotice.InvokeAsync($"Đã xóa lớp {old}.");
         }
-        catch (Exception ex) { confirmDeleteClass = false; await OnError.InvokeAsync(ValidationRules.ErrorMessage(ex)); }
+        catch (Exception ex) { await OnError.InvokeAsync(ValidationRules.ErrorMessage(ex)); }
     }
 
     private async Task BackToClassTable()
@@ -413,10 +400,13 @@ else
 
     private async Task RemoveStudent(Student s)
     {
+        if (!await Notify.ConfirmAsync($"Ngừng theo dõi / xóa học viên {s.HoTen}?",
+                "Học viên có hồ sơ sẽ được chuyển sang ngừng theo dõi, giữ nguyên toàn bộ đơn nghỉ và lịch sử. Chỉ hồ sơ chưa phát sinh dữ liệu mới bị xóa hẳn.",
+                "Xác nhận"))
+            return;
         try
         {
             bool deleted=Repository.DeleteStudent(Session, s.MaHocVien);
-            pendingRemoval=null;
             await OnDataChanged.InvokeAsync();
             await OnNotice.InvokeAsync(deleted?$"Đã xóa hồ sơ chưa sử dụng của {s.HoTen}.":$"Đã ngừng theo dõi {s.HoTen}; giữ nguyên hồ sơ lịch sử.");
         }

@@ -59,6 +59,7 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingProvider>();
 builder.Services.AddSingleton<AccountValidity>();
 builder.Services.AddScoped<AppSession>();
+builder.Services.AddScoped<NotifyService>();
 builder.Services.AddSingleton<LeaveRepository>();
 builder.Services.AddSingleton<BusinessStore>();
 builder.Services.AddSingleton<AdminService>();
