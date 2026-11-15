@@ -83,9 +83,9 @@ Tham số `Leave:TranhThuMonthlyLimit` quy định số đơn nghỉ tranh thủ
 | Xác thực | ASP.NET Core Identity, cookie `LeaveManagement.Auth` | Đăng nhập, khoá tài khoản, đổi mật khẩu. Các endpoint `/account/login`, `/account/logout`, `/account/renew`, `/account/change-password` là Minimal API, dùng form POST có kiểm tra antiforgery. |
 | Dữ liệu tài khoản | SQLite qua EF Core (`accounts.db`) | Lưu người dùng, vai trò, hồ sơ cá nhân và hash mật khẩu. |
 | Dữ liệu nghiệp vụ | SQLite qua EF Core (`business.db`) | Lưu lớp, học viên, môn học, đơn nghỉ, danh mục và nhật ký. |
-| Nghiệp vụ | `LeaveRepository` (singleton) | Kiểm tra quyền và quy tắc nghiệp vụ, rồi ghi dữ liệu trong một transaction. |
+| Nghiệp vụ | `LeaveRepository` (singleton, partial class trong `Services/Business`) | Kiểm tra quyền và quy tắc nghiệp vụ, rồi ghi dữ liệu trong một transaction. |
 | Sao lưu | `BackupService`, `DailyBackupService` | Tạo bản sao lưu thủ công hoặc tự động, và khôi phục khi khởi động. |
-| Xuất nhập Excel | `ExcelExporter` | Đọc tệp `.xlsx` và CSV khi tạo lớp, xuất báo cáo `.xlsx`. |
+| Xuất nhập Excel | `ClassListImporter`, `ExcelExporter` | `ClassListImporter` đọc tệp `.xlsx` và CSV khi tạo lớp. `ExcelExporter` xuất báo cáo `.xlsx`. |
 
 ### 4.2. Tính nhất quán khi ghi dữ liệu
 
@@ -275,7 +275,7 @@ Sau khi đăng nhập, mỗi vai trò làm việc trên cùng một bố cục g
 - **Thanh công cụ phía trên** cố định khi cuộn trang. Bên trái là nút thu gọn thanh điều hướng và đường dẫn trang hiện tại. Bên phải là ngày hiện tại, nút đổi lớp (chỉ với vai trò trung đội) và menu tài khoản. Menu tài khoản gồm thông tin tài khoản, đổi mật khẩu, bảo mật và đăng xuất.
 - **Chân trang** hiển thị thông tin bản quyền và liên hệ của Học viện.
 
-Mã giao diện dùng chung nằm trong `Components/SidebarBrand.razor`, `Components/AccountMenu.razor` và `Components/TopbarDate.razor`. Kiểu dáng của khung trang nằm ở khối cuối tệp `wwwroot/css/site.css`. Logic thu gọn và tooltip nằm trong `wwwroot/js/app.js`.
+Mã giao diện dùng chung nằm trong `Components/Layout/SidebarBrand.razor`, `Components/Layout/AccountMenu.razor` và `Components/Layout/TopbarDate.razor`. Kiểu dáng của khung trang nằm ở khối cuối tệp `wwwroot/css/site.css`. Logic thu gọn và tooltip nằm trong `wwwroot/js/app.js`.
 
 Mỗi dòng trong bảng đơn nghỉ có nút In. Nút này mở trang `/in-don/{id}` chứa mẫu in của đơn, và người dùng in hoặc lưu PDF bằng chức năng in của trình duyệt. Ứng dụng đặt chiều rộng tối thiểu 1.360 px và chưa hỗ trợ màn hình điện thoại.
 
@@ -289,10 +289,15 @@ dotnet run --project Tests/QuanLyNghiPhep.Tests.csproj -c Release
 node Tests/http_smoke.mjs
 ```
 
-- `Tests/Program.cs` là chương trình console kiểm tra hồi quy nghiệp vụ. Bộ này không dùng `dotnet test`, và dừng ngay ở kiểm tra thất bại đầu tiên. Phạm vi gồm phân quyền, bảo toàn lịch sử, quản lý tài khoản, nâng cấp schema và JSON, nhập Excel và CSV, nhiều repository đồng thời, rollback khi ghi lỗi, đăng nhập và đổi mật khẩu.
-- `Tests/http_smoke.mjs` kiểm tra các luồng HTTP trên một bản cài tạm. Bộ này cần bản build Release và Node.js 20 trở lên.
+- `Tests/Program.cs` là chương trình console kiểm tra hồi quy nghiệp vụ. Bộ này không dùng `dotnet test`. Kiểm tra thất bại được ghi `FAIL` rồi bộ test chạy tiếp; cuối lượt chạy in danh sách kiểm tra thất bại và trả mã thoát 1. Ngoại lệ không mong đợi vẫn dừng toàn bộ lượt chạy. Phạm vi gồm phân quyền, bảo toàn lịch sử, quản lý tài khoản, nâng cấp schema và JSON, nhập Excel và CSV, nhiều repository đồng thời, rollback khi ghi lỗi, đăng nhập và đổi mật khẩu.
+- `Tests/http_smoke.mjs` kiểm tra các luồng HTTP trên một bản cài tạm, gồm đăng nhập, phân quyền trang, đổi mật khẩu, gia hạn phiên và đăng xuất. Bộ này cần bản build Release và Node.js 20 trở lên.
 
-**Tình trạng tại lần chạy ngày 15/11/2026.** Bộ kiểm thử nghiệp vụ qua 121 kiểm tra đầu tiên, sau đó dừng ở kiểm tra `Incomplete spreadsheet headers are rejected` (`Tests/Program.cs`, dòng 395). Kiểm tra này yêu cầu bộ nhập CSV từ chối tệp chỉ có ba cột STT, Tên, Lớp. Bộ nhập hiện tại lại chấp nhận tệp đó. Các kiểm tra phía sau dòng 395 chưa được chạy. Bộ kiểm thử HTTP chưa được chạy trong lần kiểm tra này.
+**Tình trạng tại lần chạy ngày 15/11/2026.** Bộ kiểm thử HTTP qua cả 25 kiểm tra. Bộ kiểm thử nghiệp vụ qua 162 kiểm tra và có 2 kiểm tra thất bại, cả hai thuộc bộ nhập danh sách lớp (`ClassListImporter`):
+
+- `Incomplete spreadsheet headers are rejected`: tệp chỉ có ba cột STT, Tên, Lớp vẫn được chấp nhận.
+- `Partially entered row cannot silently lose a student`: dòng có STT nhưng bỏ trống họ tên bị bỏ qua mà không báo lỗi, nên học viên đó không được tạo.
+
+Hai lỗi này xuất hiện từ khi bộ nhập được viết lại để tự dò dòng tiêu đề. Cần quyết định giữ hành vi mới (và sửa kiểm thử) hay khôi phục hành vi chặt chẽ như mục 9 mô tả.
 
 Giao diện chưa có bộ kiểm thử tự động.
 
@@ -305,19 +310,31 @@ start.ps1                     Script khởi chạy nhanh
 docs/
   PhanTichBaiToan.md          Phân tích nghiệp vụ và ràng buộc dữ liệu
 QuanLyNghiPhep/
-  Program.cs                  Cấu hình dịch vụ, Identity, endpoint tài khoản
+  Program.cs                  Đăng ký dịch vụ, Identity, cookie và pipeline
   appsettings.json            Tham số Leave
+  Endpoints/
+    AccountEndpoints.cs       /account/login, /renew, /logout, /change-password
   Components/
-    App.razor                 Khung HTML gốc
-    Pages/                    Màn hình theo vai trò và các trang con
-    Layout/                   Layout mặc định
-    AccountMenu.razor         Menu tài khoản và popup đổi mật khẩu
-    SidebarBrand.razor        Logo đầu thanh điều hướng
-    TopbarDate.razor          Ngày hiện tại trên thanh công cụ
-    Icon.razor                Bộ icon SVG
-  Models/                     Đối tượng nghiệp vụ và hằng số trạng thái
-  Data/                       DbContext, lưu trữ SQLite, dữ liệu mẫu
-  Services/                   Phân quyền, nghiệp vụ, tài khoản, Excel, sao lưu
+    App.razor, Routes.razor   Khung HTML gốc và định tuyến
+    Layout/                   MainLayout, AccountMenu, SidebarBrand, TopbarDate
+    Pages/                    Chỉ các component có @page: Home, Admin, InDon, Password, Error
+    Workspaces/               Màn hình và tab theo vai trò
+      TrungDoi/               Chủ nhiệm trung đội: tổng quan, các loại nghỉ, môn học, học viên
+      PhongQLHV/              Phòng QLHV: đơn nghỉ, lớp, tạo lớp, thống kê, danh mục
+      BoMon/                  Giáo viên bộ môn
+      QuanTri/                Quản trị: nhật ký, sao lưu
+    Shared/                   Icon, bảng đơn nghỉ dùng chung
+      Charts/                 Biểu đồ và thẻ KPI
+  Models/                     Thực thể, input và hằng số; mỗi kiểu một tệp
+  Data/                       ApplicationUser, DbContext, BusinessStore, dữ liệu mẫu
+  Services/
+    ValidationRules.cs        Quy tắc kiểm tra dùng chung
+    Accounts/                 Phiên đăng nhập, kiểm tra tài khoản, quản trị, mật khẩu
+    Business/                 LeaveRepository chia theo nghiệp vụ (partial class):
+                              lõi, Access, Classes, Students, Subjects, Leaves,
+                              Review, Catalog, Audit
+    Backup/                   Sao lưu thủ công, tự động và khôi phục
+    Excel/                    ClassListImporter (nhập), ExcelExporter (xuất)
   AppData/                    Database, khoá và tệp sinh khi chạy (không đưa lên Git)
   Properties/                 launchSettings.json
   wwwroot/                    CSS, JavaScript, hình ảnh, tệp Excel mẫu
