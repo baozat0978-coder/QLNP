@@ -69,6 +69,13 @@ try {
     const next=await teacher.request('/');
     const relogin=await teacher.request('/account/login',{username:'bomon',password:'Ab1!xyZ9',__RequestVerificationToken:token(next.text)});
     check(signedIn(relogin.text),'New password signs in');
+    const admin=sessions.get('admin');
+    const renewed=await admin.request('/account/renew',{__RequestVerificationToken:token((await admin.request('/')).text)});
+    check(signedIn(renewed.text),'Session renewal keeps the user signed in');
+    const office=sessions.get('phongqlhv');const officeCopy=new Client();officeCopy.cookies=new Map(office.cookies);
+    const loggedOut=await office.request('/account/logout',{__RequestVerificationToken:token((await office.request('/')).text)});
+    check(loggedOut.status===200&&!loggedOut.url.includes('/account/')&&!signedIn(loggedOut.text),'Logout ends the session');
+    check(!signedIn((await officeCopy.request('/')).text),'Logout revokes copies of the old cookie');
     console.log(`ALL ${passed} HTTP CHECKS PASSED`);
 } finally {
     processUnderTest.kill();
