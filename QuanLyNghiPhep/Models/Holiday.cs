@@ -7,8 +7,3 @@ public sealed class Holiday
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
 }
-
-public sealed class PlatoonItem
-{
-    public string Name { get; set; } = "";
-}
