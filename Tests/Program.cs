@@ -41,10 +41,17 @@ try
         return s;
     }
     int passed = 0;
+    var failed = new List<string>();
+    // Ghi nhận kiểm tra thất bại rồi chạy tiếp, để một lỗi không che mất các kiểm tra phía sau.
+    // Ngoại lệ không mong đợi vẫn dừng toàn bộ bộ test ở khối catch cuối tệp.
     void Check(bool ok, string label)
     {
         if (!ok)
-            throw new Exception(label);
+        {
+            Console.WriteLine("FAIL " + label);
+            failed.Add(label);
+            return;
+        }
         Console.WriteLine("PASS " + label);
         passed++;
     }
@@ -71,7 +78,7 @@ try
             action();
         }
         catch (UserAccessException) { Check(true, label); return; }
-        throw new Exception(label);
+        Check(false, label);
     }
     void Invalid(Action action, string label)
     {
@@ -81,7 +88,7 @@ try
         }
         catch (ArgumentException) { Check(true, label); return; }
         catch (InvalidOperationException) { Check(true, label); return; }
-        throw new Exception(label);
+        Check(false, label);
     }
     async Task BadAsync(Func<Task> action, string label)
     {
@@ -90,7 +97,7 @@ try
             await action();
         }
         catch (ArgumentException) { Check(true, label); return; }
-        throw new Exception(label);
+        Check(false, label);
     }
     Student Student(string code, string name, string cls) => new()
     {
@@ -354,7 +361,7 @@ try
             action();
         }
         catch (InvalidDataException) { Check(true, label); return; }
-        throw new Exception(label);
+        Check(false, label);
     }
     byte[] RewriteWorkbook(byte[] bytes, Action<Dictionary<string, string>> edit)
     {
@@ -489,7 +496,15 @@ try
     Invalid(() => repo.SetClassPlatoon(admin, "A", "Không có"), "Platoon must exist in catalog");
     var generatedOk = Enumerable.Range(0, 20).Select(_ => AccountSetup.NewPassword()).All(w => w.Length == 10 && w.Any(char.IsUpper) && w.Any(char.IsLower) && w.Any(char.IsDigit) && w.Any(c => !char.IsLetterOrDigit(c)) && w.Distinct().Count() >= 4 && !w.Any(c => "0O1lI".Contains(c)));
     Check(generatedOk, "Generated passwords are 10 chars, meet policy and avoid ambiguous characters");
-    Console.WriteLine($"ALL {passed} BUSINESS CHECKS PASSED");
+    if (failed.Count == 0)
+        Console.WriteLine($"ALL {passed} BUSINESS CHECKS PASSED");
+    else
+    {
+        Console.WriteLine($"{passed} PASSED, {failed.Count} FAILED:");
+        foreach (var label in failed)
+            Console.WriteLine("  - " + label);
+        Environment.ExitCode = 1;
+    }
 }
 catch (Exception ex) { Console.Error.WriteLine("TEST FAILURE: " + ex); Environment.ExitCode = 1; }
 sealed class Provider(ClaimsPrincipal p) : AuthenticationStateProvider
