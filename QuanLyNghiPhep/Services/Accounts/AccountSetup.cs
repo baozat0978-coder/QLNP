@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using QuanLyNghiPhep.Data;
 using QuanLyNghiPhep.Models;
 
-namespace QuanLyNghiPhep.Services;
+namespace QuanLyNghiPhep.Services.Accounts;
 
 public static class AccountSetup
 {

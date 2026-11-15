@@ -5,9 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using QuanLyNghiPhep.Data;
 using QuanLyNghiPhep.Models;
 
-namespace QuanLyNghiPhep.Services;
+namespace QuanLyNghiPhep.Services.Accounts;
 
-public sealed record AccountRow(string Id, string Name, string Role, bool Enabled, bool Locked, string FullName, DateTime? DateOfBirth, string Gender, string PhoneNumber, string MajorCode, string FacultyName = "", string FacultyId = "", string Password = "");
 public sealed class AdminService(IServiceScopeFactory scopes, BusinessStore store, ILogger<AdminService>? logger = null)
 {
     private readonly SemaphoreSlim gate = new(1, 1);

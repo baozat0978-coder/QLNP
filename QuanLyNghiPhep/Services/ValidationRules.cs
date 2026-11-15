@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using QuanLyNghiPhep.Services.Accounts;
 
 namespace QuanLyNghiPhep.Services;
 
@@ -29,5 +30,3 @@ public static class ValidationRules
     public static string ErrorMessage(Exception error) => error is UserAccessException or ArgumentException or InvalidDataException or BusinessRuleException
         ? error.Message : "Không thể hoàn tất thao tác. Vui lòng kiểm tra dữ liệu và thử lại.";
 }
-
-public sealed class BusinessRuleException(string message) : InvalidOperationException(message);

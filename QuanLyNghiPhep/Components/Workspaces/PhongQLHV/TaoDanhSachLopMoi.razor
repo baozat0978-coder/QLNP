@@ -262,7 +262,7 @@
             await stream.CopyToAsync(ms);
             ms.Position = 0;
 
-            var imported = ExcelExporter.ParseClassExcel(ms, newClassName);
+            var imported = ClassListImporter.ParseClassExcel(ms, newClassName);
             if (imported.Count == 0)
             {
                 await OnError.InvokeAsync("Không đọc được dòng học viên nào từ tệp đã chọn. Hãy kiểm tra các cột: STT; Tên; Lớp; Ngày sinh; Số điện thoại.");

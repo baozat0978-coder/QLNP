@@ -1,8 +1,9 @@
 using System.IO.Compression;
 using Microsoft.Data.Sqlite;
 using QuanLyNghiPhep.Models;
+using QuanLyNghiPhep.Services.Accounts;
 
-namespace QuanLyNghiPhep.Services;
+namespace QuanLyNghiPhep.Services.Backup;
 
 // Sao lưu: VACUUM INTO tạo bản sao nhất quán khi app đang chạy. Khôi phục: đặt tệp chờ, áp dụng khi khởi động lại.
 public sealed class BackupService(IWebHostEnvironment env)
@@ -116,26 +117,5 @@ public sealed class BackupService(IWebHostEnvironment env)
     {
         foreach (var f in List().Where(x => x.Name.StartsWith("tu-dong-")).Skip(keep))
             try { f.Delete(); } catch { }
-    }
-}
-
-public sealed class DailyBackupService(BackupService backup, ILogger<DailyBackupService> logger) : BackgroundService
-{
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                if (!backup.List().Any(x => x.Name.StartsWith("tu-dong-") && x.CreationTime > DateTime.Now.AddHours(-23)))
-                {
-                    backup.CreateBackupCore("tu-dong");
-                    backup.Prune();
-                }
-            }
-            catch (Exception ex) { logger.LogError(ex, "Sao lưu tự động thất bại"); }
-            await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
-        }
     }
 }

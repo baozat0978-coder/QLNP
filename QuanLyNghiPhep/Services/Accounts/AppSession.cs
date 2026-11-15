@@ -1,42 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Server;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNghiPhep.Data;
 using QuanLyNghiPhep.Models;
 
-namespace QuanLyNghiPhep.Services;
+namespace QuanLyNghiPhep.Services.Accounts;
 
-public sealed class UserAccessException(string message) : UnauthorizedAccessException(message);
-
-// Mỗi thao tác đọc/ghi kiểm tra lại tài khoản trong DB, kể cả trên circuit đang mở.
-public sealed class AccountValidity(IDbContextFactory<AuthDbContext> factory)
-{
-    public const string ExpiryClaim = "leave:expires";
-    public const int SessionMinutes = 120;
-    public bool IsValid(ClaimsPrincipal principal)
-    {
-        if (principal.Identity?.IsAuthenticated != true
-            || !long.TryParse(principal.FindFirstValue(ExpiryClaim), out var expires)
-            || expires <= DateTimeOffset.UtcNow.ToUnixTimeSeconds())
-            return false;
-        using var db = factory.CreateDbContext();
-        var id = principal.FindFirstValue(ClaimTypes.NameIdentifier);
-        var user = db.Users.AsNoTracking().SingleOrDefault(x => x.Id == id);
-        if (user is null || !user.IsEnabled || user.LockoutEnd > DateTimeOffset.UtcNow
-            || user.SecurityStamp != principal.FindFirstValue("AspNet.Identity.SecurityStamp"))
-            return false;
-        var role = principal.FindFirstValue(ClaimTypes.Role);
-        return Enum.TryParse<UserRole>(role, out var parsed) && Enum.IsDefined(parsed)
-            && db.UserRoles.Any(ur => ur.UserId == id && db.Roles.Any(r => r.Id == ur.RoleId && r.Name == role));
-    }
-}
-public sealed record AccountProfile(
-    string FullName,
-    DateTime? DateOfBirth,
-    string Gender,
-    string PhoneNumber,
-    string MajorCode);
 public sealed class AppSession(AuthenticationStateProvider provider, AccountValidity validity, IDbContextFactory<AuthDbContext> factory)
 {
     private ClaimsPrincipal principal = new(new ClaimsIdentity());
@@ -87,12 +56,4 @@ public sealed class AppSession(AuthenticationStateProvider provider, AccountVali
             ?? throw new UserAccessException(
                 "Không tìm thấy thông tin tài khoản.");
     }
-}
-
-public sealed class IdentityRevalidatingProvider(ILoggerFactory loggerFactory, AccountValidity validity)
-    : RevalidatingServerAuthenticationStateProvider(loggerFactory)
-{
-    protected override TimeSpan RevalidationInterval => TimeSpan.FromSeconds(30);
-    protected override Task<bool> ValidateAuthenticationStateAsync(AuthenticationState state, CancellationToken cancellationToken)
-        => Task.FromResult(validity.IsValid(state.User));
 }

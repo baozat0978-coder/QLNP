@@ -12,6 +12,9 @@ using QuanLyNghiPhep.Components;
 using QuanLyNghiPhep.Data;
 using QuanLyNghiPhep.Models;
 using QuanLyNghiPhep.Services;
+using QuanLyNghiPhep.Services.Accounts;
+using QuanLyNghiPhep.Services.Backup;
+using QuanLyNghiPhep.Services.Business;
 
 var builder = WebApplication.CreateBuilder(args);
 var dataDirectory = Path.Combine(builder.Environment.ContentRootPath, "AppData");

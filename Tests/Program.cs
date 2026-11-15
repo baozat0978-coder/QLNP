@@ -12,6 +12,10 @@ using Microsoft.Extensions.Logging;
 using QuanLyNghiPhep.Data;
 using QuanLyNghiPhep.Models;
 using QuanLyNghiPhep.Services;
+using QuanLyNghiPhep.Services.Accounts;
+using QuanLyNghiPhep.Services.Backup;
+using QuanLyNghiPhep.Services.Business;
+using QuanLyNghiPhep.Services.Excel;
 
 try
 {
@@ -352,7 +356,7 @@ try
     List<Student> Csv(string text)
     {
         using var input = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(text));
-        return ExcelExporter.ParseClassExcel(input, "A");
+        return ClassListImporter.ParseClassExcel(input, "A");
     }
     void BadFile(Action action, string label)
     {
@@ -404,22 +408,22 @@ try
     BadFile(() => Csv("STT,Tên,Lớp,Ngày sinh,Số điện thoại\n" + string.Join("\n", Enumerable.Range(1, 1001).Select(i => $"{i},Nguyễn An,A,04/03/2005,0912345678"))), "Import enforces the 1000-student limit");
     var template = ExcelExporter.BuildClassTemplate("A", new[] { Student("TEMP", "Nguyễn An", "A") });
     using (var input = new MemoryStream(template))
-        Check(ExcelExporter.ParseClassExcel(input).Single().HoTen == "Nguyễn An", "Generated class template round-trips through the Excel importer");
+        Check(ClassListImporter.ParseClassExcel(input).Single().HoTen == "Nguyễn An", "Generated class template round-trips through the Excel importer");
     var noHeader = ExcelExporter.BuildTable("Data", new List<string[]> { new[] { "Nguyễn An", "A", "04/03/2005", "0912345678" } });
     using (var input = new MemoryStream(noHeader))
-        Check(ExcelExporter.ParseClassExcel(input).Single().HoTen == "Nguyễn An", "Four-column XLSX without headers is parsed correctly");
+        Check(ClassListImporter.ParseClassExcel(input).Single().HoTen == "Nguyễn An", "Four-column XLSX without headers is parsed correctly");
     XNamespace main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
     var nativeDate = RewriteWorkbook(template, files => { var doc = XDocument.Parse(files["xl/worksheets/sheet1.xml"]); var cell = doc.Descendants(main + "c").Single(x => x.Attribute("r")?.Value == "D2"); cell.SetAttributeValue("t", null); cell.RemoveNodes(); cell.Add(new XElement(main + "v", new DateTime(2005, 3, 4).ToOADate().ToString(System.Globalization.CultureInfo.InvariantCulture))); files["xl/worksheets/sheet1.xml"] = doc.ToString(); });
     using (var input = new MemoryStream(nativeDate))
-        Check(ExcelExporter.ParseClassExcel(input).Single().NgaySinh == "04/03/2005", "Native Excel serial birth dates are normalized");
+        Check(ClassListImporter.ParseClassExcel(input).Single().NgaySinh == "04/03/2005", "Native Excel serial birth dates are normalized");
     var date1904 = RewriteWorkbook(nativeDate, files => { var book = XDocument.Parse(files["xl/workbook.xml"]); book.Root!.AddFirst(new XElement(main + "workbookPr", new XAttribute("date1904", "1"))); files["xl/workbook.xml"] = book.ToString(); var doc = XDocument.Parse(files["xl/worksheets/sheet1.xml"]); doc.Descendants(main + "c").Single(x => x.Attribute("r")?.Value == "D2").Element(main + "v")!.Value = (new DateTime(2005, 3, 4).ToOADate() - 1462).ToString(System.Globalization.CultureInfo.InvariantCulture); files["xl/worksheets/sheet1.xml"] = doc.ToString(); });
     using (var input = new MemoryStream(date1904))
-        Check(ExcelExporter.ParseClassExcel(input).Single().NgaySinh == "04/03/2005", "Excel 1904 date system is handled without shifting birth dates");
+        Check(ClassListImporter.ParseClassExcel(input).Single().NgaySinh == "04/03/2005", "Excel 1904 date system is handled without shifting birth dates");
     var sheetOrder = RewriteWorkbook(template, files => { files["xl/worksheets/sheet2.xml"] = files["xl/worksheets/sheet1.xml"]; files["xl/worksheets/sheet1.xml"] = "<invalid/>"; files["xl/_rels/workbook.xml.rels"] = files["xl/_rels/workbook.xml.rels"].Replace("worksheets/sheet1.xml", "worksheets/sheet2.xml"); });
     using (var input = new MemoryStream(sheetOrder))
-        Check(ExcelExporter.ParseClassExcel(input).Single().HoTen == "Nguyễn An", "Importer follows workbook sheet order instead of sorting ZIP filenames");
+        Check(ClassListImporter.ParseClassExcel(input).Single().HoTen == "Nguyễn An", "Importer follows workbook sheet order instead of sorting ZIP filenames");
     var badXml = RewriteWorkbook(template, files => files["xl/worksheets/sheet1.xml"] = "<!DOCTYPE x [<!ENTITY evil SYSTEM 'file:///unused'>]><x>&evil;</x>");
-    BadFile(() => { using var input = new MemoryStream(badXml); ExcelExporter.ParseClassExcel(input); }, "External XML entities are prohibited");
+    BadFile(() => { using var input = new MemoryStream(badXml); ClassListImporter.ParseClassExcel(input); }, "External XML entities are prohibited");
     var data = published.Clone();
     data.LyDo = "=SUM(1,2)";
     data.HoTen = "An\u0001B";
